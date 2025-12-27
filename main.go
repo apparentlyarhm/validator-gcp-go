@@ -1,8 +1,21 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"log"
+
+	"github.com/joho/godotenv"
+	"github.com/validator-gcp/v2/internal/config"
+)
 
 func main() {
+	godotenv.Load() // as usual, in local we will have a .env file but in prod itll be directly available.
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("FATAL: could not load config: %v", err)
+	}
+
 	fmt.Println(`
 
 ⣠⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣰⣄⡀⠀⠀⠀
