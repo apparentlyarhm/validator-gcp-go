@@ -9,8 +9,8 @@ import (
 	"google.golang.org/api/option"
 )
 
-func NewInstancesClient(ctx context.Context, o option.ClientOption) *compute.InstancesClient {
-	c, e := compute.NewInstancesRESTClient(ctx, o)
+func NewInstancesClient(ctx context.Context, o ...option.ClientOption) *compute.InstancesClient {
+	c, e := compute.NewInstancesRESTClient(ctx, o...)
 	if e != nil {
 		log.Fatalf("[INIT] Could not instantiate Instances Client :: %v", e)
 	}
@@ -20,8 +20,8 @@ func NewInstancesClient(ctx context.Context, o option.ClientOption) *compute.Ins
 	return c
 }
 
-func NewFirewallsClient(ctx context.Context, o option.ClientOption) *compute.FirewallsClient {
-	c, e := compute.NewFirewallsRESTClient(ctx, o)
+func NewFirewallsClient(ctx context.Context, o ...option.ClientOption) *compute.FirewallsClient {
+	c, e := compute.NewFirewallsRESTClient(ctx, o...)
 	if e != nil {
 		log.Fatalf("[INIT] Could not instantiate Firewall Client :: %v", e)
 	}
@@ -31,8 +31,8 @@ func NewFirewallsClient(ctx context.Context, o option.ClientOption) *compute.Fir
 	return c
 }
 
-func NewMachinesTypeClient(ctx context.Context, o option.ClientOption) *compute.MachineTypesClient {
-	c, e := compute.NewMachineTypesRESTClient(ctx, o)
+func NewMachinesTypeClient(ctx context.Context, o ...option.ClientOption) *compute.MachineTypesClient {
+	c, e := compute.NewMachineTypesRESTClient(ctx, o...)
 	if e != nil {
 		log.Fatalf("[INIT] Could not instantiate Machine Type Client :: %v", e)
 	}
@@ -41,8 +41,8 @@ func NewMachinesTypeClient(ctx context.Context, o option.ClientOption) *compute.
 
 	return c
 }
-func NewStorageClient(ctx context.Context, o option.ClientOption) *storage.Client {
-	c, e := storage.NewClient(ctx, o)
+func NewStorageClient(ctx context.Context, o ...option.ClientOption) *storage.Client {
+	c, e := storage.NewClient(ctx, o...)
 	if e != nil {
 		log.Fatalf("[INIT] Could not instantiate Storage Client :: %v", e)
 	}

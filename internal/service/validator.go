@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"net"
 	"path"
+	"slices"
 	"strconv"
 	"time"
 
@@ -27,13 +29,18 @@ type ValidatorService struct {
 
 func NewValidatorService(cfg *config.Config) (*ValidatorService, error) {
 	ctx := context.Background()
-	o := option.WithCredentialsFile(cfg.GoogleCloud.ApplicationCredentials)
+
+	var o []option.ClientOption
+	if cfg.GoogleCloud.ApplicationCredentials != "" {
+		o = append(o, option.WithCredentialsFile(cfg.GoogleCloud.ApplicationCredentials))
+	}
+	// in production this wont be appended, that means it'll be inferred automatically
 
 	// All of this can be thought of @Autowired equivalent
-	fwClient := config.NewFirewallsClient(ctx, o)
-	instClient := config.NewInstancesClient(ctx, o)
-	storageClient := config.NewStorageClient(ctx, o)
-	mchTypeClient := config.NewMachinesTypeClient(ctx, o)
+	fwClient := config.NewFirewallsClient(ctx, o...)
+	instClient := config.NewInstancesClient(ctx, o...)
+	storageClient := config.NewStorageClient(ctx, o...)
+	mchTypeClient := config.NewMachinesTypeClient(ctx, o...)
 
 	return &ValidatorService{
 		cfg:               cfg,
@@ -108,14 +115,58 @@ func (s *ValidatorService) GetMachineDetails(ctx context.Context) (*models.Insta
 	return res, nil
 }
 
-// TODO: implement these
-func (v *ValidatorService) DoPong()                             {}
-func (v *ValidatorService) AddIpToFirewall(request interface{}) {} // Use actual models later
-func (v *ValidatorService) IsIpPresent(ip string)               {}
-func (v *ValidatorService) PurgeFirewall()                      {}
-func (v *ValidatorService) AllowPublicAccess()                  {}
-func (v *ValidatorService) GetFirewallDetails()                 {}
-func (v *ValidatorService) GetServerInfo(address string)        {}
-func (v *ValidatorService) GetModList()                         {}
-func (v *ValidatorService) Download(object string)              {}
-func (v *ValidatorService) ExecuteRcon(address, command string) {}
+/*
+Returns pong
+*/
+func (s *ValidatorService) DoPong(ctx context.Context) *models.CommonResponse {
+	res := &models.CommonResponse{
+		Message: "Pong!",
+	}
+
+	return res
+}
+
+/*
+Returns PRESENT or ABSENT if the IP is present in the sources list of the concerned firewall.
+Returns PRESENT automatically if the list has `0.0.0.0/0`, signifying public access.
+*/
+func (s *ValidatorService) IsIpPresent(ctx context.Context, ip string) (*models.CommonResponse, error) {
+	var message string = "ABSENT"
+
+	source := net.ParseIP(ip)
+	if source == nil {
+		return nil, apperror.ErrBadRequest
+	}
+
+	var target = ip + "/32" // this method will only deal with single IPs
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	r := &computepb.GetFirewallRequest{
+		Project:  s.cfg.GoogleCloud.Project,
+		Firewall: s.cfg.GoogleCloud.FirewallName,
+	}
+
+	f, fe := s.firewallsClient.Get(ctx, r)
+	if fe != nil {
+		return nil, apperror.MapError(fe)
+	}
+
+	var ips = f.GetSourceRanges()
+	if slices.Contains(ips, target) || slices.Contains(ips, "0.0.0.0/0") {
+		message = "PRESENT"
+	}
+
+	return &models.CommonResponse{
+		Message: message,
+	}, nil
+
+}
+func (s *ValidatorService) AddIpToFirewall(request interface{}) {} // Use actual models later
+func (s *ValidatorService) PurgeFirewall()                      {}
+func (s *ValidatorService) AllowPublicAccess()                  {}
+func (s *ValidatorService) GetFirewallDetails()                 {}
+func (s *ValidatorService) GetServerInfo(address string)        {}
+func (s *ValidatorService) GetModList()                         {}
+func (s *ValidatorService) Download(filename string)            {}
+func (s *ValidatorService) ExecuteRcon(address, command string) {}
