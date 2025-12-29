@@ -14,7 +14,7 @@ import (
 the global handler, needs the main validator service and auth service.
 */
 type GlobalHandler struct {
-	validator *serv.ValidatorService
+	Validator *serv.ValidatorService
 }
 
 func (h *GlobalHandler) Pong(w http.ResponseWriter, r *http.Request) {
@@ -40,9 +40,21 @@ func (h *GlobalHandler) IssueJwtToken(w http.ResponseWriter, r *http.Request) {
 // ---------------- GCP / FIREWALL ----------------
 
 func (h *GlobalHandler) GetMachineDetails(w http.ResponseWriter, r *http.Request) {
-	// TODO: Call service.GetMachineDetails() -> Return InstanceDetailResponse
-}
+	ctx := r.Context()
 
+	machine, err := h.Validator.GetMachineDetails(ctx)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(machine); err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+}
 func (h *GlobalHandler) GetFirewallDetails(w http.ResponseWriter, r *http.Request) {
 	// TODO: Call service.GetFirewallDetails() -> Return FirewallRuleResponse
 }
@@ -64,13 +76,6 @@ func (h *GlobalHandler) MakePublic(w http.ResponseWriter, r *http.Request) {
 	// TODO: Call service.AllowPublicAccess()
 }
 
-// ---------------- MINECRAFT / UTILS ----------------
-
-func (h *GlobalHandler) GetServerInfo(w http.ResponseWriter, r *http.Request) {
-	// address := r.URL.Query().Get("address")
-	// TODO: Call service.GetServerInfo(address) -> Return MOTDResponse
-}
-
 func (h *GlobalHandler) GetMods(w http.ResponseWriter, r *http.Request) {
 	// TODO: Call service.GetModList() -> Return ModListResponse
 }
@@ -80,12 +85,19 @@ func (h *GlobalHandler) DownloadMod(w http.ResponseWriter, r *http.Request) {
 	// TODO: Call service.Download(fileName)
 }
 
+// ---------------- MINECRAFT / UTILS ----------------
+
+func (h *GlobalHandler) GetServerInfo(w http.ResponseWriter, r *http.Request) {
+	// address := r.URL.Query().Get("address")
+	// TODO: Call service.GetServerInfo(address) -> Return MOTDResponse
+}
+
 func (h *GlobalHandler) ExecuteRcon(w http.ResponseWriter, r *http.Request) {
 	// address := r.URL.Query().Get("address")
 	// TODO: Decode JSON Body -> Call service.ExecuteRcon(address, req)
 }
 
-// private helper
+// private helper that sends an error response.
 func (h *GlobalHandler) handleError(w http.ResponseWriter, r *http.Request, err error) {
 	var message string
 	var status int
@@ -115,6 +127,7 @@ func (h *GlobalHandler) handleError(w http.ResponseWriter, r *http.Request, err 
 		message = "Internal Server Error"
 
 		log.Printf("%v : %v", r.URL.Path, err)
+		status = http.StatusInternalServerError
 
 	}
 

@@ -50,7 +50,7 @@ func Load() (Config, error) {
 		return cfg, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	fmt.Printf("[ENV] Loaded %v admins and %v users for a subset of rcon commands", len(Admins), len(Users))
+	fmt.Printf("[ENV] Loaded %v admins and %v users for a subset of rcon commands\n", len(Admins), len(Users))
 
 	return cfg, nil
 }
