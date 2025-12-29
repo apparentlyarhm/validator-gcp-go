@@ -1,6 +1,10 @@
 package apperror
 
-import "errors"
+import (
+	"errors"
+
+	"google.golang.org/api/googleapi"
+)
 
 var (
 
@@ -23,4 +27,35 @@ var (
 type ErrorResponse struct {
 	Code    int16  `json:"code"`
 	Message string `json:"message"`
+}
+
+/*
+translates a raw GCP error into a domain-specific apperror.
+If it's not a known mapping, it returns the original error (which will result in a 500).
+*/
+func MapError(err error) error {
+	// at the time of writing this im not sure what the best practices here are. this is logically the same thing as what i did in my java
+	// app.
+
+	if err == nil {
+		return nil
+	}
+
+	var gErr *googleapi.Error
+	if errors.As(err, &gErr) {
+		switch gErr.Code {
+		case 404:
+			return ErrNotFound
+		case 403:
+			return ErrForbidden
+		case 409:
+			return ErrConflict
+		case 400:
+			return ErrBadRequest
+		}
+	}
+
+	// If it's not a specific code we care about (like 503 Unavailable, 500 Internal),
+	// we return the original error. The Handler will log it and return HTTP 500.
+	return err
 }
