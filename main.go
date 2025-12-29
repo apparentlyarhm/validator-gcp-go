@@ -3,19 +3,15 @@ package main
 import (
 	"fmt"
 	"log"
+	"net/http"
 
 	"github.com/joho/godotenv"
+	"github.com/validator-gcp/v2/internal/api"
 	"github.com/validator-gcp/v2/internal/config"
+	"github.com/validator-gcp/v2/internal/service"
 )
 
 func main() {
-	godotenv.Load() // as usual, in local we will have a .env file but in prod itll be directly available.
-
-	cfg, err := config.Load()
-	if err != nil {
-		log.Fatalf("FATAL: could not load config: %v", err)
-	}
-
 	fmt.Println(`
 
 ⣠⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣰⣄⡀⠀⠀⠀
@@ -38,4 +34,28 @@ func main() {
 
 	
 	`)
+	godotenv.Load() // as usual, in local we will have a .env file but in prod itll be directly available.
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("FATAL: could not load config: %v", err)
+	}
+
+	// validator service
+	vs, e := service.NewValidatorService(&cfg)
+	if e != nil {
+		log.Fatalf("FATAL: could not validator service: %v", err)
+	}
+
+	// global handler
+	gh := &api.GlobalHandler{
+		Validator: vs,
+	}
+
+	r := api.GlobalRouter(gh)
+
+	log.Printf("Listening on port 8080.")
+	if err := http.ListenAndServe(":8080", r); err != nil {
+		log.Fatal(err)
+	}
 }
