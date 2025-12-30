@@ -19,7 +19,7 @@ type FirwallRuleResponse struct {
 	Name         string `json:"name,omitempty"`
 	Status       string `json:"status,omitempty"`
 	Direction    string `json:"direction,omitempty"`
-	AddressCount int16  `json:"allowedIpCount,omitempty"`
+	AddressCount int    `json:"allowedIpCount,omitempty"`
 }
 
 // used to communicate with github

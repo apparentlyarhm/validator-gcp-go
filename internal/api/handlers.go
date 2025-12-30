@@ -56,7 +56,20 @@ func (h *GlobalHandler) GetMachineDetails(w http.ResponseWriter, r *http.Request
 	}
 }
 func (h *GlobalHandler) GetFirewallDetails(w http.ResponseWriter, r *http.Request) {
-	// TODO: Call service.GetFirewallDetails() -> Return FirewallRuleResponse
+	ctx := r.Context()
+
+	fw, err := h.Validator.GetFirewallDetails(ctx)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(fw); err != nil {
+		h.handleError(w, r, err)
+		return
+	}
 }
 
 func (h *GlobalHandler) AddUserIp(w http.ResponseWriter, r *http.Request) {
@@ -64,16 +77,58 @@ func (h *GlobalHandler) AddUserIp(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *GlobalHandler) CheckIpInFirewall(w http.ResponseWriter, r *http.Request) {
-	// ip := r.URL.Query().Get("ip")
-	// TODO: Call service.IsIpPresent(ip)
+	ip := r.URL.Query().Get("ip")
+	if ip == "" {
+		h.handleError(w, r, apperror.ErrBadRequest)
+	}
+
+	ctx := r.Context()
+	res, err := h.Validator.IsIpPresent(ctx, ip)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		h.handleError(w, r, err)
+		return
+	}
 }
 
 func (h *GlobalHandler) PurgeFirewall(w http.ResponseWriter, r *http.Request) {
-	// TODO: Call service.PurgeFirewall()
+	ctx := r.Context()
+
+	res, err := h.Validator.PurgeFirewall(ctx)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		h.handleError(w, r, err)
+		return
+	}
 }
 
 func (h *GlobalHandler) MakePublic(w http.ResponseWriter, r *http.Request) {
-	// TODO: Call service.AllowPublicAccess()
+	ctx := r.Context()
+
+	res, err := h.Validator.AllowPublicAccess(ctx)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		h.handleError(w, r, err)
+		return
+	}
 }
 
 func (h *GlobalHandler) GetMods(w http.ResponseWriter, r *http.Request) {

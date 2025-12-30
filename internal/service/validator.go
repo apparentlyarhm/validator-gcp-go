@@ -56,7 +56,7 @@ Returns the detailed config of the VM running the minecraft server.
 */
 func (s *ValidatorService) GetMachineDetails(ctx context.Context) (*models.InstanceDetailResponse, error) {
 
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second) // fair timeout?
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second) // fair timeout?
 	defer cancel()
 
 	r := &computepb.GetInstanceRequest{
@@ -133,13 +133,13 @@ Returns PRESENT automatically if the list has `0.0.0.0/0`, signifying public acc
 func (s *ValidatorService) IsIpPresent(ctx context.Context, ip string) (*models.CommonResponse, error) {
 	var message string = "ABSENT"
 
-	source := net.ParseIP(ip)
+	source := parseIP(ip)
 	if source == nil {
 		return nil, apperror.ErrBadRequest
 	}
 
 	var target = ip + "/32" // this method will only deal with single IPs
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 
 	r := &computepb.GetFirewallRequest{
@@ -162,11 +162,167 @@ func (s *ValidatorService) IsIpPresent(ctx context.Context, ip string) (*models.
 	}, nil
 
 }
-func (s *ValidatorService) AddIpToFirewall(request interface{}) {} // Use actual models later
-func (s *ValidatorService) PurgeFirewall()                      {}
-func (s *ValidatorService) AllowPublicAccess()                  {}
-func (s *ValidatorService) GetFirewallDetails()                 {}
-func (s *ValidatorService) GetServerInfo(address string)        {}
-func (s *ValidatorService) GetModList()                         {}
-func (s *ValidatorService) Download(filename string)            {}
-func (s *ValidatorService) ExecuteRcon(address, command string) {}
+
+/*
+Adds a given ip to the related firewall's Sources List. Request is rejected if
+ip doesnt successful parse as `net.IP`.
+*/
+func (s *ValidatorService) AddIpToFirewall(ctx context.Context, ip string) (*models.CommonResponse, error) {
+	source := parseIP(ip)
+	if source == nil {
+		return nil, apperror.ErrBadRequest
+	}
+
+	var target = ip + "/32" // this method will only deal with single IPs
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+
+	r := &computepb.GetFirewallRequest{
+		Project:  s.cfg.GoogleCloud.Project,
+		Firewall: s.cfg.GoogleCloud.FirewallName,
+	}
+
+	f, fe := s.firewallsClient.Get(ctx, r)
+	if fe != nil {
+		return nil, apperror.MapError(fe)
+	}
+
+	var ips = f.GetSourceRanges()
+	if slices.Contains(ips, target) {
+		return nil, apperror.ErrConflict
+	}
+
+	// matching the logic from the original app
+	if len(ips) > 50 {
+		ips = []string{} // new empty
+	}
+
+	ips = append(ips, target) // our new ip list is complete at this point in any case.
+
+	patchReq := &computepb.PatchFirewallRequest{
+		Project:  s.cfg.GoogleCloud.Project,
+		Firewall: s.cfg.GoogleCloud.FirewallName,
+		FirewallResource: &computepb.Firewall{
+			SourceRanges: ips,
+		},
+	}
+
+	// The Go client returns an "Operation" object, just like Java's Future/Operation.
+	op, err := s.firewallsClient.Patch(ctx, patchReq)
+	if err != nil {
+		return nil, apperror.MapError(err)
+	}
+
+	if err = op.Wait(ctx); err != nil {
+		return nil, apperror.MapError(err)
+	}
+
+	return &models.CommonResponse{
+		Message: "IP added to firewall successfully",
+	}, nil
+
+}
+
+/*
+Removes all IPs from the firewall and adds a dummy - 1.1.1.1/32,
+effectively preventing public access to resources until ips are populated back in
+*/
+func (s *ValidatorService) PurgeFirewall(ctx context.Context) (*models.CommonResponse, error) {
+	var target = "1.1.1.1" + "/32"
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+
+	var ips []string
+	ips = append(ips, target)
+
+	patchReq := &computepb.PatchFirewallRequest{
+		Project:  s.cfg.GoogleCloud.Project,
+		Firewall: s.cfg.GoogleCloud.FirewallName,
+		FirewallResource: &computepb.Firewall{
+			SourceRanges: ips,
+		},
+	}
+
+	op, err := s.firewallsClient.Patch(ctx, patchReq)
+	if err != nil {
+		return nil, apperror.MapError(err)
+	}
+
+	if err = op.Wait(ctx); err != nil {
+		return nil, apperror.MapError(err)
+	}
+
+	return &models.CommonResponse{
+		Message: "Done",
+	}, nil
+}
+
+/*
+Removes all IPs from the firewall and adds 0.0.0.0/0
+effectively allowing public access to resources (minecraft server)
+*/
+func (s *ValidatorService) AllowPublicAccess(ctx context.Context) (*models.CommonResponse, error) {
+	var target = "0.0.0.0" + "/0"
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+
+	var ips []string
+	ips = append(ips, target)
+
+	patchReq := &computepb.PatchFirewallRequest{
+		Project:  s.cfg.GoogleCloud.Project,
+		Firewall: s.cfg.GoogleCloud.FirewallName,
+		FirewallResource: &computepb.Firewall{
+			SourceRanges: ips,
+		},
+	}
+
+	op, err := s.firewallsClient.Patch(ctx, patchReq)
+	if err != nil {
+		return nil, apperror.MapError(err)
+	}
+
+	if err = op.Wait(ctx); err != nil {
+		return nil, apperror.MapError(err)
+	}
+
+	return &models.CommonResponse{
+		Message: "Done",
+	}, nil
+}
+
+func (s *ValidatorService) GetFirewallDetails(ctx context.Context) (*models.FirwallRuleResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+
+	r := &computepb.GetFirewallRequest{
+		Project:  s.cfg.GoogleCloud.Project,
+		Firewall: s.cfg.GoogleCloud.FirewallName,
+	}
+
+	f, fe := s.firewallsClient.Get(ctx, r)
+	if fe != nil {
+		return nil, apperror.MapError(fe)
+	}
+
+	var status string = "ENABLED"
+	if f.GetDisabled() {
+		status = "DISABLED"
+	}
+
+	return &models.FirwallRuleResponse{
+		Name:         f.GetName(),
+		Status:       status,
+		Direction:    f.GetDirection(),
+		AddressCount: len(f.GetSourceRanges()),
+	}, nil
+
+}
+func (s *ValidatorService) GetServerInfo(ip string)        {}
+func (s *ValidatorService) GetModList()                    {}
+func (s *ValidatorService) Download(filename string)       {}
+func (s *ValidatorService) ExecuteRcon(ip, command string) {}
+
+func parseIP(s string) net.IP {
+	return net.ParseIP(s)
+}
