@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"path"
 
 	"github.com/validator-gcp/v2/internal/apperror"
 	serv "github.com/validator-gcp/v2/internal/service"
@@ -132,12 +133,38 @@ func (h *GlobalHandler) MakePublic(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *GlobalHandler) GetMods(w http.ResponseWriter, r *http.Request) {
-	// TODO: Call service.GetModList() -> Return ModListResponse
+	ctx := r.Context()
+
+	mods, err := h.Validator.GetModList(ctx)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(mods); err != nil {
+		h.handleError(w, r, err)
+		return
+	}
 }
 
 func (h *GlobalHandler) DownloadMod(w http.ResponseWriter, r *http.Request) {
-	// fileName := chi.URLParam(r, "fileName")
-	// TODO: Call service.Download(fileName)
+	fileName := path.Base(r.URL.Path)
+	ctx := r.Context()
+
+	res, err := h.Validator.Download(ctx, fileName)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		h.handleError(w, r, err)
+		return
+	}
 }
 
 // ---------------- MINECRAFT / UTILS ----------------
@@ -164,7 +191,7 @@ func (h *GlobalHandler) handleError(w http.ResponseWriter, r *http.Request, err 
 
 	case errors.Is(err, apperror.ErrConflict):
 		status = http.StatusConflict
-		message = err.Error() // "Resource already exists"
+		message = err.Error()
 
 	case errors.Is(err, apperror.ErrForbidden):
 		status = http.StatusForbidden

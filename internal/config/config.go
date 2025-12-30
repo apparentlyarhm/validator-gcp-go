@@ -26,6 +26,7 @@ type GoogleCloudConfig struct {
 	VMZone                 string `envconfig:"GOOGLE_CLOUD_VM_ZONE" required:"true"`
 	ApplicationCredentials string `envconfig:"GOOGLE_APPLICATION_CREDENTIALS" required:"true"`
 	ModlistFile            string `envconfig:"GOOGLE_CLOUD_MODLIST_FILE" required:"true"`
+	ServiceAccountEmail    string `envconfig:"GOOGLE_SERVICE_ACCOUNT_EMAIL" required:"true"`
 }
 
 type MinecraftConfig struct {

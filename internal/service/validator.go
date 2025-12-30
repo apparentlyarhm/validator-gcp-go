@@ -2,10 +2,15 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
+	"log"
 	"net"
 	"path"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	compute "cloud.google.com/go/compute/apiv1"
@@ -291,6 +296,9 @@ func (s *ValidatorService) AllowPublicAccess(ctx context.Context) (*models.Commo
 	}, nil
 }
 
+/*
+Returns a minimal info about the firewall. at the time of writing this, its not really used anywhere.
+*/
 func (s *ValidatorService) GetFirewallDetails(ctx context.Context) (*models.FirwallRuleResponse, error) {
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
@@ -318,9 +326,116 @@ func (s *ValidatorService) GetFirewallDetails(ctx context.Context) (*models.Firw
 	}, nil
 
 }
+
+/*
+Reads the modlist.txt on the associated bucket, parses its contents and file's updated timestamp
+to return to the frontend. ".jar" substring is stripped from all file names.
+*/
+func (s *ValidatorService) GetModList(ctx context.Context) (*models.ModListResponse, error) {
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+
+	var mods []string
+	var updated string
+
+	bkt := s.storageClient.Bucket(s.cfg.GoogleCloud.BucketName)
+	o := bkt.Object(s.cfg.GoogleCloud.ModlistFile)
+
+	oAtrs, err := o.Attrs(ctx)
+	if err != nil {
+		return nil, apperror.MapError(err)
+	}
+
+	updated = oAtrs.Updated.String()
+
+	r, rerr := o.NewReader(ctx)
+	if rerr != nil {
+		return nil, apperror.MapError(rerr) // default behaviour is log and return 500 so this is fine i think.
+	}
+	defer r.Close()
+
+	modlistBytes, readError := io.ReadAll(r)
+	if readError != nil {
+		return nil, apperror.MapError(readError)
+	}
+
+	mlstr := strings.SplitSeq(string(modlistBytes), "\n")
+	for line := range mlstr {
+		mods = append(mods, strings.Split(path.Base(line), ".jar")[0]) // file1.jar\n -> file1.jar -> file1
+	}
+
+	return &models.ModListResponse{
+		Mods:      mods,
+		UpdatedAt: updated,
+	}, nil
+}
+
+/*
+Signs a file on the associated bucket for 5 minutes and returns its download link.
+returns bad request in case file isnt found. (in normal user flow it shouldnt be possible)
+*/
+func (s *ValidatorService) Download(ctx context.Context, filename string) (*models.CommonResponse, error) {
+	blobPath := fmt.Sprintf("files/%s.jar", filename)
+	objHandle := s.storageClient.Bucket(s.cfg.GoogleCloud.BucketName).Object(blobPath)
+
+	log.Printf(":: %v ::", blobPath)
+
+	_, err := objHandle.Attrs(ctx)
+	if err != nil {
+		if errors.Is(err, storage.ErrObjectNotExist) {
+			return nil, apperror.ErrNotFound
+		}
+		return nil, apperror.MapError(err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+
+	/*
+		as per the docs:
+		"Detecting GoogleAccessID may not be possible if you are authenticated using a token source or using option.WithHTTPClient.
+		In this case, you can provide a service account email for GoogleAccessID and the client will attempt to sign the URL or
+		Post Policy using that service account."
+
+		`Cloud Run (via Application Default Credentials) uses a Token Source (it fetches access tokens from the metadata server).
+		It does not provide the private key file.
+
+		Because of this, the Go library often cannot "guess" which Service Account it is running as, so it can't ask the IAM API
+		to sign the blob. Java likely does an extra network call behind the scenes to "get current identity" that Go avoids for
+		performance.`
+
+		^^ this is what gemini had to say for this, and makes sense.
+
+	*/
+
+	opts := &storage.SignedURLOptions{
+		Scheme:  storage.SigningSchemeV4,
+		Method:  "GET",
+		Expires: time.Now().Add(5 * time.Minute),
+
+		// If we define this, the library skips the "guessing" phase.
+		// It will immediately use the IAM Credentials API to sign the URL remotely
+		GoogleAccessID: s.cfg.GoogleCloud.ServiceAccountEmail,
+	}
+
+	url, err := s.storageClient.Bucket(s.cfg.GoogleCloud.BucketName).SignedURL(blobPath, opts)
+	if err != nil {
+		return nil, apperror.MapError(err)
+	}
+
+	/*
+		Local: If you use a JSON key file, the library ignores GoogleAccessID and signs locally using the key in the file. It still works.
+
+		Cloud Run: It sees the GoogleAccessID, realizes it doesn't have a local private key, and automatically calls the iam.serviceAccounts.signBlob
+		API using the ADC tokens. It works.
+	*/
+	return &models.CommonResponse{
+		Message: url,
+	}, nil
+
+}
+
 func (s *ValidatorService) GetServerInfo(ip string)        {}
-func (s *ValidatorService) GetModList()                    {}
-func (s *ValidatorService) Download(filename string)       {}
 func (s *ValidatorService) ExecuteRcon(ip, command string) {}
 
 func parseIP(s string) net.IP {
