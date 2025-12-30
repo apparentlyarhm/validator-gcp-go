@@ -21,6 +21,11 @@ var (
 
 	// ErrForbidden: Matches ForbiddenException and GCP PERMISSION_DENIED
 	ErrForbidden = errors.New("you do not have permission to perform this action")
+
+	// Will help us for all socket/TCP connection failures
+	ErrInternal = errors.New("")
+
+	INTERNAL_MESSAGE = "Internal Server Error"
 )
 
 // might expand it later.

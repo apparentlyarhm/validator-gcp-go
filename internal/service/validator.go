@@ -19,6 +19,7 @@ import (
 	"github.com/validator-gcp/v2/internal/apperror"
 	"github.com/validator-gcp/v2/internal/config"
 	"github.com/validator-gcp/v2/internal/models"
+	"github.com/validator-gcp/v2/internal/util"
 	"google.golang.org/api/option"
 )
 
@@ -435,7 +436,72 @@ func (s *ValidatorService) Download(ctx context.Context, filename string) (*mode
 
 }
 
-func (s *ValidatorService) GetServerInfo(ip string)        {}
+/*
+Connects to the associated minecraft server using the protocol spec of query, and retreives general information
+needs query enabled on the server (via server.properties)
+*/
+func (s *ValidatorService) GetServerInfo(ctx context.Context, ip string) (*models.MOTDResponse, error) {
+	source := parseIP(ip)
+	if source == nil {
+		return nil, apperror.ErrBadRequest
+	}
+	var address string = fmt.Sprintf("%v:%v", ip, s.cfg.Minecraft.ServerPort)
+
+	conn, connErr := net.DialTimeout("udp", address, 2*time.Second)
+	if connErr != nil {
+		log.Printf("connection to %v failed: %v\n", ip, connErr)
+		return nil, apperror.ErrInternal
+	}
+
+	reqTime := time.Now()
+	conn.SetReadDeadline(reqTime.Add(4 * time.Second))
+	conn.SetWriteDeadline(reqTime.Add(2 * time.Second))
+
+	_, writeError := conn.Write(append(util.HANDSHAKE_PKT, util.SESSION_ID...))
+	if writeError != nil {
+		return nil, apperror.ErrInternal
+	}
+
+	// The handshake response is usually small (a string number + null terminator).
+	// 32 bytes is plenty for a challenge token + next packet
+	buffer := make([]byte, 2048)
+
+	n, challengeErr := conn.Read(buffer)
+	if challengeErr != nil {
+		return nil, apperror.ErrInternal
+	}
+
+	ct, err := util.ValidateAndGetChallengeToken(buffer, n)
+	if err != nil {
+		return nil, err
+	}
+
+	statReq := util.CreateStatPacket(ct)
+	_, err = conn.Write(statReq)
+	if err != nil {
+		return nil, apperror.ErrInternal
+	}
+
+	n, err = conn.Read(buffer)
+	if err != nil {
+		log.Printf("[QUERY] Failed to read stat response: %v", err)
+		return nil, apperror.ErrInternal
+	}
+
+	res, err := util.ParseStatResponse(buffer, n)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+/*
+Executes commands on the associated minecraft server using the protocol spec of RCON, and returns output, if any
+all responses are 200, if the request is valid, NOT if the commands succeeds or fails.
+
+some commands need ADMIN role, which will be handled at the handler/middleware level
+*/
 func (s *ValidatorService) ExecuteRcon(ip, command string) {}
 
 func parseIP(s string) net.IP {

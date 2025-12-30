@@ -170,8 +170,21 @@ func (h *GlobalHandler) DownloadMod(w http.ResponseWriter, r *http.Request) {
 // ---------------- MINECRAFT / UTILS ----------------
 
 func (h *GlobalHandler) GetServerInfo(w http.ResponseWriter, r *http.Request) {
-	// address := r.URL.Query().Get("address")
-	// TODO: Call service.GetServerInfo(address) -> Return MOTDResponse
+	address := r.URL.Query().Get("address")
+	ctx := r.Context()
+
+	res, err := h.Validator.GetServerInfo(ctx, address)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		h.handleError(w, r, err)
+		return
+	}
 }
 
 func (h *GlobalHandler) ExecuteRcon(w http.ResponseWriter, r *http.Request) {
@@ -201,12 +214,16 @@ func (h *GlobalHandler) handleError(w http.ResponseWriter, r *http.Request, err 
 		status = http.StatusBadRequest
 		message = err.Error()
 
+	case errors.Is(err, apperror.ErrInternal):
+		status = http.StatusInternalServerError
+		message = apperror.INTERNAL_MESSAGE
+
 	default:
 		/*
 			this section is for mostly 500 errors. i havent written the service layer so i'm not sure what all
 			errors the GCP libraries can throw. In java it was a lot of times, IOExceptions
 		*/
-		message = "Internal Server Error"
+		message = apperror.INTERNAL_MESSAGE
 
 		log.Printf("%v : %v", r.URL.Path, err)
 		status = http.StatusInternalServerError

@@ -42,11 +42,11 @@ type LoginResponse struct {
 
 type MOTDResponse struct {
 	Hostname     string   `json:"hostname"`
-	PlayerNumber int16    `json:"numPlayers"`
+	PlayerNumber int      `json:"numPlayers"`
 	Players      []string `json:"players"`
 	GameType     string   `json:"gameType"`
-	MaxPlayers   int16    `json:"maxPlayers"`
-	HostPort     int32    `json:"hostPort"`
+	MaxPlayers   int      `json:"maxPlayers"`
+	HostPort     int      `json:"hostPort"`
 	Version      string   `json:"version"`
 	Map          string   `json:"map"`
 	GameId       string   `json:"gameId"`
