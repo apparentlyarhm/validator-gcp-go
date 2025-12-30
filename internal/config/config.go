@@ -25,6 +25,7 @@ type GoogleCloudConfig struct {
 	VMName                 string `envconfig:"GOOGLE_CLOUD_VM_NAME" required:"true"`
 	VMZone                 string `envconfig:"GOOGLE_CLOUD_VM_ZONE" required:"true"`
 	ApplicationCredentials string `envconfig:"GOOGLE_APPLICATION_CREDENTIALS" required:"true"`
+	ModlistFile            string `envconfig:"GOOGLE_CLOUD_MODLIST_FILE" required:"true"`
 }
 
 type MinecraftConfig struct {
@@ -51,6 +52,7 @@ func Load() (Config, error) {
 	}
 
 	fmt.Printf("[ENV] Loaded %v admins and %v users for a subset of rcon commands\n", len(Admins), len(Users))
+	fmt.Printf("[ENV] associated modlist file :: %v\n", cfg.GoogleCloud.ModlistFile)
 
 	return cfg, nil
 }
