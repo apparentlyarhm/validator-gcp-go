@@ -53,7 +53,7 @@ func GlobalRouter(h *GlobalHandler) http.Handler {
 		r.Get("/ping", h.Pong)
 		r.Get("/machine", h.GetMachineDetails)
 		r.Get("/server-info", h.GetServerInfo)
-		r.Get("/execute", h.ExecuteRcon)
+		r.Post("/execute", h.ExecuteRcon)
 
 		r.Route("/mods", func(r chi.Router) {
 			r.Get("/", h.GetMods)
