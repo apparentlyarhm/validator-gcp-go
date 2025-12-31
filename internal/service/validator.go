@@ -23,6 +23,9 @@ import (
 	"google.golang.org/api/option"
 )
 
+const PUBLIC_WILDCARD = "0.0.0.0/0"
+const BASIC_IPV4 = "1.1.1.1/32"
+
 type ValidatorService struct {
 	cfg *config.Config
 
@@ -159,7 +162,7 @@ func (s *ValidatorService) IsIpPresent(ctx context.Context, ip string) (*models.
 	}
 
 	var ips = f.GetSourceRanges()
-	if slices.Contains(ips, target) || slices.Contains(ips, "0.0.0.0/0") {
+	if slices.Contains(ips, target) || slices.Contains(ips, PUBLIC_WILDCARD) {
 		message = "PRESENT"
 	}
 
@@ -173,7 +176,9 @@ func (s *ValidatorService) IsIpPresent(ctx context.Context, ip string) (*models.
 Adds a given ip to the related firewall's Sources List. Request is rejected if
 ip doesnt successful parse as `net.IP`.
 */
-func (s *ValidatorService) AddIpToFirewall(ctx context.Context, ip string) (*models.CommonResponse, error) {
+func (s *ValidatorService) AddIpToFirewall(ctx context.Context, req *models.AddressAddRequest) (*models.CommonResponse, error) {
+	ip := req.Address
+
 	source := parseIP(ip)
 	if source == nil {
 		return nil, apperror.ErrBadRequest
@@ -196,6 +201,12 @@ func (s *ValidatorService) AddIpToFirewall(ctx context.Context, ip string) (*mod
 	var ips = f.GetSourceRanges()
 	if slices.Contains(ips, target) {
 		return nil, apperror.ErrConflict
+	}
+
+	if slices.Contains(ips, PUBLIC_WILDCARD) {
+		return &models.CommonResponse{
+			Message: "IP added to firewall successfully (Wildcard present)",
+		}, nil
 	}
 
 	// matching the logic from the original app
@@ -234,12 +245,11 @@ Removes all IPs from the firewall and adds a dummy - 1.1.1.1/32,
 effectively preventing public access to resources until ips are populated back in
 */
 func (s *ValidatorService) PurgeFirewall(ctx context.Context) (*models.CommonResponse, error) {
-	var target = "1.1.1.1" + "/32"
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 
 	var ips []string
-	ips = append(ips, target)
+	ips = append(ips, BASIC_IPV4)
 
 	patchReq := &computepb.PatchFirewallRequest{
 		Project:  s.cfg.GoogleCloud.Project,
@@ -502,7 +512,54 @@ all responses are 200, if the request is valid, NOT if the commands succeeds or 
 
 some commands need ADMIN role, which will be handled at the handler/middleware level
 */
-func (s *ValidatorService) ExecuteRcon(ip, command string) {}
+func (s *ValidatorService) ExecuteRcon(ctx context.Context, req *models.RconRequest, userRole string, ip string) (*models.CommonResponse, error) {
+	source := parseIP(ip)
+	if source == nil {
+		return nil, apperror.ErrBadRequest
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	cmdDef, exists := config.RconCommandsMap[req.Command]
+	if !exists {
+		return nil, apperror.ErrBadRequest
+	}
+
+	if !cmdDef.IsEnabled {
+		return nil, apperror.ErrBadRequest
+	}
+
+	if cmdDef.IsAdmin && userRole != "ADMIN" {
+		return nil, apperror.ErrForbidden
+	}
+
+	var finalCommand string
+	if req.Command == "CUSTOM" {
+		if len(req.Arguments) == 0 {
+			return nil, apperror.ErrBadRequest
+		}
+		finalCommand = req.Arguments[0]
+	} else {
+		// Formatting: We need to convert []string to []interface{} for fmt.Sprintf
+		args := make([]interface{}, len(req.Arguments))
+		for i, v := range req.Arguments {
+			args[i] = v
+		}
+
+		// Java String.format ignores extra args, Go might behave differently or we trust the frontend.
+		// For simplicity, we just pass it.
+		finalCommand = fmt.Sprintf(cmdDef.Format, args...)
+	}
+	respStr, err := util.ExecuteCommand(ctx, finalCommand, ip, s.cfg.Minecraft.RconPort, s.cfg.Minecraft.RconPass)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.CommonResponse{
+		Message: respStr,
+	}, nil
+}
 
 func parseIP(s string) net.IP {
 	return net.ParseIP(s)

@@ -35,6 +35,12 @@ type MinecraftConfig struct {
 	ServerPort int    `envconfig:"MINECRAFT_SERVER_PORT" required:"true"`
 }
 
+type RconCommandDef struct {
+	Format    string
+	IsEnabled bool
+	IsAdmin   bool
+}
+
 // github user IDs of admins - mostly for admin access related apis
 var Admins = []string{
 	"169424843",
@@ -43,6 +49,19 @@ var Admins = []string{
 // github user IDs of allowed users - mostly for normal rcon commands
 var Users = []string{
 	"103031918",
+}
+
+var RconCommandsMap = map[string]RconCommandDef{
+	"KICK":        {Format: "kick %s", IsEnabled: true, IsAdmin: true},
+	"BAN":         {Format: "ban %s", IsEnabled: true, IsAdmin: true},
+	"PARDON":      {Format: "pardon %s", IsEnabled: true, IsAdmin: true},
+	"TELEPORT":    {Format: "tp %s %s", IsEnabled: true, IsAdmin: false},
+	"GAMEMODE":    {Format: "gamemode %s %s", IsEnabled: true, IsAdmin: true},
+	"SAY":         {Format: "say %s", IsEnabled: true, IsAdmin: true},
+	"TIME_SET":    {Format: "time set %s", IsEnabled: true, IsAdmin: false},
+	"WEATHER_SET": {Format: "weather %s", IsEnabled: true, IsAdmin: false},
+	"STOP":        {Format: "stop", IsEnabled: true, IsAdmin: true},
+	"CUSTOM":      {Format: "%s", IsEnabled: true, IsAdmin: true},
 }
 
 func Load() (Config, error) {
@@ -54,6 +73,7 @@ func Load() (Config, error) {
 
 	fmt.Printf("[ENV] Loaded %v admins and %v users for a subset of rcon commands\n", len(Admins), len(Users))
 	fmt.Printf("[ENV] associated modlist file :: %v\n", cfg.GoogleCloud.ModlistFile)
+	fmt.Printf("[ENV] Enabled RCON commands: %v\n", len(RconCommandsMap))
 
 	return cfg, nil
 }

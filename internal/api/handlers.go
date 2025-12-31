@@ -8,6 +8,7 @@ import (
 	"path"
 
 	"github.com/validator-gcp/v2/internal/apperror"
+	"github.com/validator-gcp/v2/internal/models"
 	serv "github.com/validator-gcp/v2/internal/service"
 )
 
@@ -74,7 +75,26 @@ func (h *GlobalHandler) GetFirewallDetails(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *GlobalHandler) AddUserIp(w http.ResponseWriter, r *http.Request) {
-	// TODO: Decode JSON Body -> Call service.AddIpToFirewall(req)
+	ctx := r.Context()
+
+	var req models.AddressAddRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.handleError(w, r, apperror.ErrBadRequest)
+		return
+	}
+
+	res, err := h.Validator.AddIpToFirewall(ctx, &req)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		h.handleError(w, r, err)
+		return
+	}
 }
 
 func (h *GlobalHandler) CheckIpInFirewall(w http.ResponseWriter, r *http.Request) {
@@ -188,8 +208,28 @@ func (h *GlobalHandler) GetServerInfo(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *GlobalHandler) ExecuteRcon(w http.ResponseWriter, r *http.Request) {
-	// address := r.URL.Query().Get("address")
-	// TODO: Decode JSON Body -> Call service.ExecuteRcon(address, req)
+	address := r.URL.Query().Get("address")
+	log.Printf("%v\n", address)
+	ctx := r.Context()
+
+	var req models.RconRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.handleError(w, r, apperror.ErrBadRequest)
+		return
+	}
+
+	res, err := h.Validator.ExecuteRcon(ctx, &req, "ADMIN", address)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		h.handleError(w, r, err)
+		return
+	}
 }
 
 // private helper that sends an error response.
