@@ -17,26 +17,62 @@ the global handler, needs the main validator service and auth service.
 */
 type GlobalHandler struct {
 	Validator *serv.ValidatorService
+	Auth      *serv.AuthService
 }
 
 func (h *GlobalHandler) Pong(w http.ResponseWriter, r *http.Request) {
-	// TODO: Return CommonResponse via service.DoPong()
+	ctx := r.Context()
+	res := h.Validator.DoPong(ctx)
 
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("pong"))
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		h.handleError(w, r, err)
+		return
+	}
 }
 
 // ---------------- AUTH ----------------
 
 func (h *GlobalHandler) GetGitHubLoginUrl(w http.ResponseWriter, r *http.Request) {
-	// TODO: Return CommonResponse with URL
+	ctx := r.Context()
+
+	res, err := h.Auth.GetLogin(ctx)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		h.handleError(w, r, err)
+		return
+	}
 }
 
 /*
 if a user logged in successfuly, we give them a token and a role. could be ANON, USER, ADMIN
 */
 func (h *GlobalHandler) IssueJwtToken(w http.ResponseWriter, r *http.Request) {
-	// TODO: Decode JSON body -> Call service.IssueJwtToken(code) -> Return LoginResponse
+	code := r.URL.Query().Get("code")
+	if code == "" {
+		h.handleError(w, r, apperror.ErrBadRequest)
+	}
+
+	ctx := r.Context()
+	res, err := h.Auth.Callback(ctx, code)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		h.handleError(w, r, err)
+		return
+	}
 }
 
 // ---------------- GCP / FIREWALL ----------------
@@ -57,6 +93,7 @@ func (h *GlobalHandler) GetMachineDetails(w http.ResponseWriter, r *http.Request
 		return
 	}
 }
+
 func (h *GlobalHandler) GetFirewallDetails(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

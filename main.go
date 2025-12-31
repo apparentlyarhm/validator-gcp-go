@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/joho/godotenv"
 	"github.com/validator-gcp/v2/internal/api"
@@ -47,9 +48,16 @@ func main() {
 		log.Fatalf("FATAL: could not validator service: %v", err)
 	}
 
+	a := service.AuthService{
+		Cfg: &cfg,
+		HttpClient: &http.Client{
+			Timeout: 10 * time.Second,
+		}}
+
 	// global handler
 	gh := &api.GlobalHandler{
 		Validator: vs,
+		Auth:      &a,
 	}
 
 	r := api.GlobalRouter(gh)

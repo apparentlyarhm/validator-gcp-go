@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/kelseyhightower/envconfig"
 )
@@ -11,6 +12,7 @@ type Config struct {
 	GitHub        GitHubConfig
 	GoogleCloud   GoogleCloudConfig
 	Minecraft     MinecraftConfig
+	FeHost        string `envconfig:"FE_HOST" default:"http://localhost:3000"`
 }
 
 type GitHubConfig struct {
@@ -74,6 +76,20 @@ func Load() (Config, error) {
 	fmt.Printf("[ENV] Loaded %v admins and %v users for a subset of rcon commands\n", len(Admins), len(Users))
 	fmt.Printf("[ENV] associated modlist file :: %v\n", cfg.GoogleCloud.ModlistFile)
 	fmt.Printf("[ENV] Enabled RCON commands: %v\n", len(RconCommandsMap))
+	fmt.Printf("[ENV] Configured frontend: %v\n", cfg.FeHost)
 
 	return cfg, nil
+}
+
+func (c *Config) GetRoleForUser(uid string) string {
+
+	if slices.Contains(Admins, uid) {
+		return "ADMIN"
+	}
+
+	if slices.Contains(Users, uid) {
+		return "USER"
+	}
+
+	return "ANON"
 }

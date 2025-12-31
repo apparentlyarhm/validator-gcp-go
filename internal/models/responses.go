@@ -29,6 +29,13 @@ type GithubTokenResponse struct {
 	TokenType   string `json:"token_type"`
 }
 
+// comes from github when we lookup user in the login flow
+type GithubUserResponse struct {
+	Login string `json:"login"`
+	ID    int64  `json:"id"`
+	Email string `json:"email"`
+}
+
 type ModListResponse struct {
 	UpdatedAt string   `json:"updatedAt"`
 	Mods      []string `json:"mods"`
