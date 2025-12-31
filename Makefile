@@ -1,7 +1,13 @@
+BINARY_NAME=validator
 run: 
 	go run main.go
 
 build:
-	go build -o validator main.go
+	go build -o ${BINARY_NAME} .
 
-# will add test if needed
+build-prod:
+	go build -ldflags="-s -w" -o ${BINARY_NAME} .
+
+clean:
+	go clean
+	rm ${BINARY_NAME}
