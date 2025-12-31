@@ -3,11 +3,11 @@ run:
 	go run main.go
 
 build:
-	go build -o ${BINARY_NAME} .
+	go build -o out/${BINARY_NAME} ./main.go && ls -lh out/${BINARY_NAME}
 
 build-prod:
-	go build -ldflags="-s -w" -o ${BINARY_NAME} .
+	go build -ldflags="-s -w" -o out/${BINARY_NAME} ./main.go && ls -lh out/${BINARY_NAME}
 
 clean:
 	go clean
-	rm ${BINARY_NAME}
+	rm out/${BINARY_NAME}
