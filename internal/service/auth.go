@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -102,22 +103,26 @@ func (a *AuthService) exchangeCodeForToken(ctx context.Context, code string) (*m
 
 	resp, err := a.HttpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("github token request failed: %w", err)
+		log.Printf("[AUTH] Exchange code network request failed: %v", err)
+		return nil, apperror.ErrInternal
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
+		log.Printf("[AUTH] GitHub returned status %d during token exchange", resp.StatusCode)
 		return nil, apperror.ErrForbidden
 	}
 
 	var result models.GithubTokenResponse
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, fmt.Errorf("failed to decode github token: %w", err)
+		log.Printf("[AUTH] Failed to decode GitHub token response: %v", err)
+		return nil, apperror.ErrInternal
 	}
 
-	fmt.Printf("GitHub token response: %+v\n", result)
 	if result.AccessToken == "" {
-		return nil, fmt.Errorf("github returned empty access token")
+		log.Printf("[AUTH] GitHub response contained no access token (likely bad code): %+v", result)
+		return nil, apperror.ErrInternal
 	}
 
 	return &result, nil
@@ -130,8 +135,10 @@ func (a *AuthService) fetchGithubUser(ctx context.Context, accessToken string) (
 
 	resp, err := a.HttpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("github user request failed: %w", err)
+		log.Printf("[AUTH] GitHub user profile request failed: %v", err)
+		return nil, apperror.ErrInternal
 	}
+
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
@@ -141,8 +148,33 @@ func (a *AuthService) fetchGithubUser(ctx context.Context, accessToken string) (
 	var user models.GithubUserResponse
 
 	if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
-		return nil, fmt.Errorf("failed to decode github user: %w", err)
+		log.Printf("[AUTH] Failed to decode GitHub user profile: %v", err)
+		return nil, apperror.ErrInternal
 	}
 
 	return &user, nil
+}
+
+func (a *AuthService) ValidateToken(tokenStr string) (*UserClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenStr, &UserClaims{}, func(t *jwt.Token) (interface{}, error) {
+
+		// This prevents "None" algorithm attacks.
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+
+		return []byte(a.Cfg.SigningSecret), nil
+	})
+
+	if err != nil {
+		log.Printf("[AUTH] Token validation failed: %v", err)
+		return nil, apperror.ErrForbidden
+	}
+
+	if claims, ok := token.Claims.(*UserClaims); ok && token.Valid {
+		return claims, nil
+	}
+
+	log.Printf("[AUTH] Token claims invalid or token not valid")
+	return nil, apperror.ErrForbidden
 }
