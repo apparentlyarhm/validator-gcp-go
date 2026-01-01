@@ -9,6 +9,7 @@ import (
 
 	"github.com/validator-gcp/v2/internal/apperror"
 	"github.com/validator-gcp/v2/internal/models"
+	"github.com/validator-gcp/v2/internal/service"
 	serv "github.com/validator-gcp/v2/internal/service"
 )
 
@@ -246,8 +247,19 @@ func (h *GlobalHandler) GetServerInfo(w http.ResponseWriter, r *http.Request) {
 
 func (h *GlobalHandler) ExecuteRcon(w http.ResponseWriter, r *http.Request) {
 	address := r.URL.Query().Get("address")
-	log.Printf("%v\n", address)
 	ctx := r.Context()
+
+	claims, ok := ctx.Value(UserContextKey).(*service.UserClaims)
+	if !ok {
+		// maybe AuthMiddleware failed to set the context?
+		// or the route isn't protected properly? anyway,
+		// once its tested properly it should not misbehave,
+		// safe to just reject all though
+		h.handleError(w, r, apperror.ErrForbidden)
+		return
+	}
+	role := claims.Role
+	user := claims.Username
 
 	var req models.RconRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -255,7 +267,7 @@ func (h *GlobalHandler) ExecuteRcon(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	res, err := h.Validator.ExecuteRcon(ctx, &req, "ADMIN", address)
+	res, err := h.Validator.ExecuteRcon(ctx, &req, user, role, address)
 	if err != nil {
 		h.handleError(w, r, err)
 		return

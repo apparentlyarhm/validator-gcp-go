@@ -510,7 +510,7 @@ all responses are 200, if the request is valid, NOT if the commands succeeds or 
 
 some commands need ADMIN role, which will be handled at the handler/middleware level
 */
-func (s *ValidatorService) ExecuteRcon(ctx context.Context, req *models.RconRequest, userRole string, ip string) (*models.CommonResponse, error) {
+func (s *ValidatorService) ExecuteRcon(ctx context.Context, req *models.RconRequest, user string, role string, ip string) (*models.CommonResponse, error) {
 	source := parseIP(ip)
 	if source == nil {
 		return nil, apperror.ErrBadRequest
@@ -528,7 +528,7 @@ func (s *ValidatorService) ExecuteRcon(ctx context.Context, req *models.RconRequ
 		return nil, apperror.ErrBadRequest
 	}
 
-	if cmdDef.IsAdmin && userRole != "ADMIN" {
+	if cmdDef.IsAdmin && role != "ADMIN" {
 		return nil, apperror.ErrForbidden
 	}
 
@@ -549,6 +549,8 @@ func (s *ValidatorService) ExecuteRcon(ctx context.Context, req *models.RconRequ
 		// For simplicity, we just pass it.
 		finalCommand = fmt.Sprintf(cmdDef.Format, args...)
 	}
+	log.Printf("%v wants to execute %v...\n", user, req.Command)
+
 	respStr, err := util.ExecuteCommand(ctx, finalCommand, ip, s.cfg.Minecraft.RconPort, s.cfg.Minecraft.RconPass)
 	if err != nil {
 		return nil, err
