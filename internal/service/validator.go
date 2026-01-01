@@ -389,8 +389,6 @@ func (s *ValidatorService) Download(ctx context.Context, filename string) (*mode
 	blobPath := fmt.Sprintf("files/%s.jar", filename)
 	objHandle := s.storageClient.Bucket(s.cfg.GoogleCloud.BucketName).Object(blobPath)
 
-	log.Printf(":: %v ::", blobPath)
-
 	_, err := objHandle.Attrs(ctx)
 	if err != nil {
 		if errors.Is(err, storage.ErrObjectNotExist) {
@@ -464,8 +462,8 @@ func (s *ValidatorService) GetServerInfo(ctx context.Context, ip string) (*model
 	}
 
 	reqTime := time.Now()
-	conn.SetReadDeadline(reqTime.Add(4 * time.Second))
-	conn.SetWriteDeadline(reqTime.Add(2 * time.Second))
+	conn.SetReadDeadline(reqTime.Add(5 * time.Second))
+	conn.SetWriteDeadline(reqTime.Add(5 * time.Second))
 
 	_, writeError := conn.Write(append(util.HANDSHAKE_PKT, util.SESSION_ID...))
 	if writeError != nil {
@@ -542,7 +540,7 @@ func (s *ValidatorService) ExecuteRcon(ctx context.Context, req *models.RconRequ
 		finalCommand = req.Arguments[0]
 	} else {
 		// Formatting: We need to convert []string to []interface{} for fmt.Sprintf
-		args := make([]interface{}, len(req.Arguments))
+		args := make([]any, len(req.Arguments))
 		for i, v := range req.Arguments {
 			args[i] = v
 		}

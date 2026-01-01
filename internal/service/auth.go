@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -106,12 +105,6 @@ func (a *AuthService) exchangeCodeForToken(ctx context.Context, code string) (*m
 		return nil, fmt.Errorf("github token request failed: %w", err)
 	}
 	defer resp.Body.Close()
-
-	bodyBytes, _ := io.ReadAll(resp.Body)
-	fmt.Println("RAW GITHUB RESPONSE:", string(bodyBytes))
-
-	// Restore body for the decoder
-	resp.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 	if resp.StatusCode >= 400 {
 		return nil, apperror.ErrForbidden
