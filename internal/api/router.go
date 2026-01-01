@@ -58,11 +58,11 @@ func GlobalRouter(h *GlobalHandler) http.Handler {
 	r.Use(middleware.Recoverer)
 
 	r.Route("/api/v2", func(r chi.Router) {
+		// PUBLIC
 
 		r.Get("/ping", h.Pong)
 		r.Get("/machine", h.GetMachineDetails)
 		r.Get("/server-info", h.GetServerInfo)
-		r.Post("/execute", h.ExecuteRcon)
 
 		r.Route("/mods", func(r chi.Router) {
 			r.Get("/", h.GetMods)
@@ -73,18 +73,26 @@ func GlobalRouter(h *GlobalHandler) http.Handler {
 			r.Get("/", h.GetFirewallDetails)
 			r.Get("/check-ip", h.CheckIpInFirewall)
 			r.Patch("/add-ip", h.AddUserIp)
-
-			r.Group(func(r chi.Router) {
-				// TODO: auth middleware - admin
-				r.Patch("/purge", h.PurgeFirewall)
-				r.Patch("/make-public", h.MakePublic)
-			})
-
 		})
 
 		r.Route("/auth", func(r chi.Router) {
 			r.Get("/login", h.GetGitHubLoginUrl)
 			r.Get("/callback", h.IssueJwtToken)
+		})
+
+		// PROTECTED
+
+		r.Group(func(r chi.Router) {
+			r.Use(AuthMiddleware(h.Auth))
+
+			r.Post("/execute", h.ExecuteRcon)
+
+			r.Group(func(r chi.Router) {
+				r.Use(RequireRole("ADMIN"))
+
+				r.Patch("/firewall/purge", h.PurgeFirewall)
+				r.Patch("/firewall/make-public", h.MakePublic)
+			})
 		})
 
 	})
