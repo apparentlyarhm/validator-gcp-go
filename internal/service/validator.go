@@ -517,9 +517,6 @@ func (s *ValidatorService) ExecuteRcon(ctx context.Context, req *models.RconRequ
 		return nil, apperror.ErrBadRequest
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
 	cmdDef, exists := config.RconCommandsMap[req.Command]
 	if !exists {
 		return nil, apperror.ErrBadRequest
@@ -533,23 +530,14 @@ func (s *ValidatorService) ExecuteRcon(ctx context.Context, req *models.RconRequ
 		return nil, apperror.ErrForbidden
 	}
 
-	var finalCommand string
-	if req.Command == "CUSTOM" {
-		if len(req.Arguments) == 0 {
-			return nil, apperror.ErrBadRequest
-		}
-		finalCommand = req.Arguments[0]
-	} else {
-		// Formatting: We need to convert []string to []interface{} for fmt.Sprintf
-		args := make([]any, len(req.Arguments))
-		for i, v := range req.Arguments {
-			args[i] = v
-		}
-
-		// Java String.format ignores extra args, Go might behave differently or we trust the frontend.
-		// For simplicity, we just pass it.
-		finalCommand = fmt.Sprintf(cmdDef.Format, args...)
+	finalCommand, err := buildRconCommand(*req, cmdDef)
+	if err != nil {
+		return nil, err
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
 	log.Printf("%v wants to execute %+v...\n", user, req)
 
 	respStr, err := util.ExecuteCommand(ctx, finalCommand, ip, s.cfg.Minecraft.RconPort, s.cfg.Minecraft.RconPass)
@@ -562,6 +550,48 @@ func (s *ValidatorService) ExecuteRcon(ctx context.Context, req *models.RconRequ
 	}, nil
 }
 
+// helper that validates ip
 func parseIP(s string) net.IP {
 	return net.ParseIP(s)
+}
+
+// helper to build RCON command or return errro
+func buildRconCommand(
+	req models.RconRequest,
+	cmdDef config.RconCommandDef,
+) (string, error) {
+
+	allArgs := req.Arguments
+
+	for a := range allArgs {
+		// we need to ensure no argument is empty
+		if strings.TrimSpace(allArgs[a]) == "" {
+			// remove the empty args instead
+			// that way the checks below will catch it
+			allArgs = append(allArgs[:a], allArgs[a+1:]...)
+		}
+	}
+
+	if req.Command == "CUSTOM" {
+		if len(allArgs) == 0 {
+			return "", apperror.ErrBadRequest
+		}
+		return allArgs[0], nil
+	}
+
+	expectedArgs := strings.Count(cmdDef.Format, "%s")
+	if expectedArgs != len(allArgs) {
+		return "", apperror.ErrBadRequest
+	}
+
+	if expectedArgs == 0 {
+		return cmdDef.Format, nil
+	}
+
+	args := make([]any, len(allArgs))
+	for i, v := range allArgs {
+		args[i] = v
+	}
+
+	return fmt.Sprintf(cmdDef.Format, args...), nil
 }

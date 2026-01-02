@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"strings"
 
@@ -36,8 +35,8 @@ func AuthMiddleware(a *service.AuthService) func(next http.Handler) http.Handler
 
 			claims, err := a.ValidateToken(tokenStr)
 			if err != nil {
-				log.Printf("Invalid token attempt %v by %v", err, r.RemoteAddr)
-				http.Error(w, "Forbidden: Invalid or Expired Token", http.StatusForbidden)
+				// this is against convention but 401 triggers the login flow in the frontend. with github, users are auto logged in so this flow is pretty quick.
+				http.Error(w, "Forbidden: Invalid or Expired Token", http.StatusUnauthorized)
 				return
 			}
 
