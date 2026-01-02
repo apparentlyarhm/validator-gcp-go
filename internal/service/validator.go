@@ -506,7 +506,8 @@ func (s *ValidatorService) GetServerInfo(ctx context.Context, ip string) (*model
 
 /*
 Executes commands on the associated minecraft server using the protocol spec of RCON, and returns output, if any
-all responses are 200, if the request is valid, NOT if the commands succeeds or fails.
+all responses are 200, if the request is valid, NOT if the commands succeeds or fails. 2ms of nagle's delay is
+added for the OS to flush packets properly.
 
 some commands need ADMIN role, which will be handled at the handler/middleware level
 */
@@ -549,7 +550,7 @@ func (s *ValidatorService) ExecuteRcon(ctx context.Context, req *models.RconRequ
 		// For simplicity, we just pass it.
 		finalCommand = fmt.Sprintf(cmdDef.Format, args...)
 	}
-	log.Printf("%v wants to execute %v...\n", user, req.Command)
+	log.Printf("%v wants to execute %+v...\n", user, req)
 
 	respStr, err := util.ExecuteCommand(ctx, finalCommand, ip, s.cfg.Minecraft.RconPort, s.cfg.Minecraft.RconPass)
 	if err != nil {
