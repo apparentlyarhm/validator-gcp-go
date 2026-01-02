@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"fmt"
 	"slices"
 
@@ -13,6 +14,7 @@ type Config struct {
 	GoogleCloud   GoogleCloudConfig
 	Minecraft     MinecraftConfig
 	FeHost        string `envconfig:"FE_HOST" default:"http://localhost:3000"`
+	SSH           SSHConfig
 }
 
 type GitHubConfig struct {
@@ -35,6 +37,13 @@ type MinecraftConfig struct {
 	RconPass   string `envconfig:"MINECRAFT_RCON_PASS" required:"true"`
 	RconPort   int    `envconfig:"MINECRAFT_RCON_PORT" required:"true"`
 	ServerPort int    `envconfig:"MINECRAFT_SERVER_PORT" required:"true"`
+}
+
+type SSHConfig struct {
+	User    string `envconfig:"SSH_VM_USER" required:"true"`
+	LogPath string `envconfig:"SSH_LOG_PATH" required:"true"`
+	PKeyB64 string `envconfig:"SSH_PRIVATE_KEY_BASE64" required:"true"`
+	PKey    string // we dont need to populate it right away
 }
 
 type RconCommandDef struct {
@@ -92,4 +101,13 @@ func (c *Config) GetRoleForUser(uid string) string {
 	}
 
 	return "ANON"
+}
+
+// helper that decodes base64 private key
+func GetPrivateKey(b64Key string) ([]byte, error) {
+	if b64Key != "" {
+		return base64.StdEncoding.DecodeString(b64Key)
+	}
+
+	return nil, fmt.Errorf("no private key provided")
 }

@@ -281,6 +281,26 @@ func (h *GlobalHandler) ExecuteRcon(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (h *GlobalHandler) GetRecentLogs(w http.ResponseWriter, r *http.Request) {
+	a := r.URL.Query().Get("address")
+	c := r.URL.Query().Get("c")
+
+	ctx := r.Context()
+
+	res, err := h.Validator.GetLogs(ctx, a, c)
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if err := json.NewEncoder(w).Encode(res); err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+}
+
 // private helper that sends an error response.
 func (h *GlobalHandler) handleError(w http.ResponseWriter, r *http.Request, err error) {
 	var message string

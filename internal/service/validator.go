@@ -550,17 +550,42 @@ func (s *ValidatorService) ExecuteRcon(ctx context.Context, req *models.RconRequ
 	}, nil
 }
 
+func (s *ValidatorService) GetLogs(ctx context.Context, ip string, lines string) (*models.LogResponse, error) {
+	source := parseIP(ip)
+	if source == nil {
+		return nil, apperror.ErrBadRequest
+	}
+
+	l, e := strconv.Atoi(lines)
+	if e != nil {
+		return nil, apperror.ErrBadRequest
+	}
+
+	if l <= 0 {
+		return nil, apperror.ErrBadRequest
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	defer cancel()
+
+	items, err := util.FetchLogs(&s.cfg.SSH, l, ip)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.LogResponse{
+		Items: *items,
+	}, nil
+
+}
+
 // helper that validates ip
 func parseIP(s string) net.IP {
 	return net.ParseIP(s)
 }
 
 // helper to build RCON command or return errro
-func buildRconCommand(
-	req models.RconRequest,
-	cmdDef config.RconCommandDef,
-) (string, error) {
-
+func buildRconCommand(req models.RconRequest, cmdDef config.RconCommandDef) (string, error) {
 	allArgs := req.Arguments
 
 	for a := range allArgs {
