@@ -26,7 +26,7 @@ type GoogleCloudConfig struct {
 	FirewallName           string `envconfig:"GOOGLE_CLOUD_FIREWALL_NAME" required:"true"`
 	VMName                 string `envconfig:"GOOGLE_CLOUD_VM_NAME" required:"true"`
 	VMZone                 string `envconfig:"GOOGLE_CLOUD_VM_ZONE" required:"true"`
-	ApplicationCredentials string `envconfig:"GOOGLE_APPLICATION_CREDENTIALS" required:"true"`
+	ApplicationCredentials string `envconfig:"GOOGLE_APPLICATION_CREDENTIALS"`
 	ModlistFile            string `envconfig:"GOOGLE_CLOUD_MODLIST_FILE" required:"true"`
 	ServiceAccountEmail    string `envconfig:"GOOGLE_SERVICE_ACCOUNT_EMAIL" required:"true"`
 }
