@@ -62,7 +62,7 @@ var RconCommandsMap = map[string]RconCommandDef{
 	"SAY":         {Format: "say %s", IsEnabled: true, IsAdmin: true},
 	"TIME_SET":    {Format: "time set %s", IsEnabled: true, IsAdmin: false},
 	"WEATHER_SET": {Format: "weather %s", IsEnabled: true, IsAdmin: false},
-	"STOP":        {Format: "stop", IsEnabled: true, IsAdmin: true},
+	"SEED":        {Format: "seed", IsEnabled: true, IsAdmin: false},
 	"CUSTOM":      {Format: "%s", IsEnabled: true, IsAdmin: true},
 }
 
