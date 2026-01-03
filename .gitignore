@@ -34,3 +34,8 @@ go.work.sum
 
 # easy to do
 out/
+
+# ssh
+vm_key
+vm_key.pub
+vm_key_b64.txt
