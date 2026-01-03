@@ -69,6 +69,9 @@ REQUIRED_VARS=(
     "GITHUB_CLIENT_ID"
     "GITHUB_CLIENT_SECRET"
     "GOOGLE_CLOUD_BUCKET_NAME"
+    "SSH_PRIVATE_KEY_BASE64"
+    "SSH_VM_USER"
+    "SSH_LOG_PATH"
 )
 
 echo "3. Verifying all required environment variables are set..."
