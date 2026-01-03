@@ -13,7 +13,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var logRegex = regexp.MustCompile(`^\[([^\]]+)\]\s+\[([^\]]+)\]\s+\[([^\]]+)\](.*)`)
+var logRegex = regexp.MustCompile(`^\[([^\]]+)\]\s+\[([^\]]+)\]\s+\[([^\]]+)\]:?\s+(.*)`)
 
 const MAX_MSG_LENGTH = 150
 
@@ -103,9 +103,12 @@ func parseAndCleanLogs(rawOutput string) *[]models.LogItem {
 		if strings.Contains(level, "/") {
 			parts := strings.Split(level, "/")
 			if len(parts) > 1 {
-				level = parts[1] // Grab just "INFO"
+				level = parts[len(parts)-1]
 			}
 		}
+
+		srcParts := strings.Split(src, ".")
+		src = strings.ReplaceAll(srcParts[len(srcParts)-1], "/", "")
 
 		if len(message) > MAX_MSG_LENGTH {
 			message = message[:MAX_MSG_LENGTH] + "..."
