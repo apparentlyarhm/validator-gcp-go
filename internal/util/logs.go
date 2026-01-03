@@ -16,6 +16,7 @@ import (
 var logRegex = regexp.MustCompile(`^\[([^\]]+)\]\s+\[([^\]]+)\]\s+\[([^\]]+)\]:?\s+(.*)`)
 
 const MAX_MSG_LENGTH = 150
+const RCON_STRING = "Thread RCON Client" // this is just noise
 
 type LogResponse struct {
 	Timestamp time.Time `json:"timestamp"`
@@ -99,6 +100,10 @@ func parseAndCleanLogs(rawOutput string) *[]models.LogItem {
 		level := matches[2]
 		src := matches[3]
 		message := matches[4]
+
+		if strings.Contains(message, RCON_STRING) {
+			continue
+		}
 
 		if strings.Contains(level, "/") {
 			parts := strings.Split(level, "/")
