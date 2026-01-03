@@ -561,7 +561,7 @@ func (s *ValidatorService) GetLogs(ctx context.Context, ip string, lines string)
 		return nil, apperror.ErrBadRequest
 	}
 
-	if l <= 0 {
+	if l <= 0 || l > 500 {
 		return nil, apperror.ErrBadRequest
 	}
 
