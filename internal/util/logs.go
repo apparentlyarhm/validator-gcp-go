@@ -15,12 +15,29 @@ import (
 
 var logRegex = regexp.MustCompile(`^\[([^\]]+)\]\s+\[([^\]]+)\]\s+\[([^\]]+)\]:?\s+(.*)`)
 
-const MAX_MSG_LENGTH = 150
+const MAX_MSG_LENGTH = 100
 const RCON_STRING = "Thread RCON Client" // this is just noise
 
 type LogResponse struct {
 	Timestamp time.Time `json:"timestamp"`
 	Lines     []string  `json:"lines"`
+}
+
+// a struct for all regexes to apply and what to replace a match with.
+// currently redaction will be applied to only messages, not timestamps, src, etc.
+type RedactionRule struct {
+	Pattern     *regexp.Regexp
+	Replacement string
+}
+
+var redactionRules = []RedactionRule{
+
+	{
+		Pattern:     regexp.MustCompile(`\b(?:\d{1,3}\.){3}\d{1,3}\b\b:\d{2,5}\b`),
+		Replacement: "<< HOST:PORT >>",
+	},
+
+	// might add more.
 }
 
 /*
@@ -115,6 +132,9 @@ func parseAndCleanLogs(rawOutput string) *[]models.LogItem {
 		srcParts := strings.Split(src, ".")
 		src = strings.ReplaceAll(srcParts[len(srcParts)-1], "/", "")
 
+		// at this point we are ready to redact.
+		message = redactMessage(message)
+
 		if len(message) > MAX_MSG_LENGTH {
 			message = message[:MAX_MSG_LENGTH] + "..."
 		}
@@ -128,4 +148,12 @@ func parseAndCleanLogs(rawOutput string) *[]models.LogItem {
 	}
 
 	return &entries
+}
+
+// helper that applies all regexes to try to redact potentially sensitive info
+func redactMessage(msg string) string {
+	for _, rule := range redactionRules {
+		msg = rule.Pattern.ReplaceAllString(msg, rule.Replacement)
+	}
+	return msg
 }

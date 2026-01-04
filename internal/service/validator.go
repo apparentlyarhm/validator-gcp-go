@@ -573,6 +573,12 @@ func (s *ValidatorService) GetLogs(ctx context.Context, ip string, lines string)
 		return nil, err
 	}
 
+	if len(*items) == 0 {
+		return &models.LogResponse{
+			Items: make([]models.LogItem, 0),
+		}, nil
+	}
+
 	log.Printf("[LOGS] gathered %d logs from %v", len(*items), ip)
 	return &models.LogResponse{
 		Items: *items,
