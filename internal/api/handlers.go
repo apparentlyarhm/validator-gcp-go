@@ -193,6 +193,17 @@ func (h *GlobalHandler) MakePublic(w http.ResponseWriter, r *http.Request) {
 func (h *GlobalHandler) GetMods(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	claims, ok := ctx.Value(UserContextKey).(*service.UserClaims)
+	if !ok {
+		h.handleError(w, r, apperror.ErrForbidden)
+		return
+	}
+
+	if claims.Role == "ANON" {
+		h.handleError(w, r, apperror.ErrForbidden)
+		return
+	}
+
 	mods, err := h.Validator.GetModList(ctx)
 	if err != nil {
 		h.handleError(w, r, err)
@@ -210,6 +221,17 @@ func (h *GlobalHandler) GetMods(w http.ResponseWriter, r *http.Request) {
 func (h *GlobalHandler) DownloadMod(w http.ResponseWriter, r *http.Request) {
 	fileName := path.Base(r.URL.Path)
 	ctx := r.Context()
+
+	claims, ok := ctx.Value(UserContextKey).(*service.UserClaims)
+	if !ok {
+		h.handleError(w, r, apperror.ErrForbidden)
+		return
+	}
+
+	if claims.Role == "ANON" {
+		h.handleError(w, r, apperror.ErrForbidden)
+		return
+	}
 
 	res, err := h.Validator.Download(ctx, fileName)
 	if err != nil {
@@ -286,6 +308,17 @@ func (h *GlobalHandler) GetRecentLogs(w http.ResponseWriter, r *http.Request) {
 	c := r.URL.Query().Get("c")
 
 	ctx := r.Context()
+
+	claims, ok := ctx.Value(UserContextKey).(*service.UserClaims)
+	if !ok {
+		h.handleError(w, r, apperror.ErrForbidden)
+		return
+	}
+
+	if claims.Role == "ANON" {
+		h.handleError(w, r, apperror.ErrForbidden)
+		return
+	}
 
 	res, err := h.Validator.GetLogs(ctx, a, c)
 	if err != nil {

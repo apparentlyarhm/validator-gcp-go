@@ -64,11 +64,6 @@ func GlobalRouter(h *GlobalHandler) http.Handler {
 		r.Get("/machine", h.GetMachineDetails)
 		r.Get("/server-info", h.GetServerInfo)
 
-		r.Route("/mods", func(r chi.Router) {
-			r.Get("/", h.GetMods)
-			r.Get("/download/{filename}", h.DownloadMod)
-		})
-
 		r.Route("/firewall", func(r chi.Router) {
 			r.Get("/", h.GetFirewallDetails)
 			r.Get("/check-ip", h.CheckIpInFirewall)
@@ -84,6 +79,11 @@ func GlobalRouter(h *GlobalHandler) http.Handler {
 
 		r.Group(func(r chi.Router) {
 			r.Use(AuthMiddleware(h.Auth))
+
+			r.Route("/mods", func(r chi.Router) {
+				r.Get("/", h.GetMods)
+				r.Get("/download/{filename}", h.DownloadMod)
+			})
 
 			r.Post("/execute", h.ExecuteRcon)
 			r.Get("/logs", h.GetRecentLogs)
