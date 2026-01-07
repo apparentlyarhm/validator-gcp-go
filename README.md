@@ -92,26 +92,42 @@ when tokens are expired, the server returns 401 instead of 403. the 401 triggers
 ## Environment
 see `env.example`
 ```bash
-
+# Oauth
 GITHUB_CLIENT_ID=value
 GITHUB_CLIENT_SECRET=value
-GOOGLE_CLOUD_BUCKET_NAME=value 
+FE_HOST=value
+
+# for querying infra
+GOOGLE_CLOUD_BUCKET_NAME=value
 GOOGLE_CLOUD_FIREWALL_NAME=value
 GOOGLE_CLOUD_PROJECT=value
 GOOGLE_CLOUD_VM_NAME=value
 GOOGLE_CLOUD_VM_ZONE=value
-MINECRAFT_SERVER_PORT=value
+
+# minecraft ops - needs everything enabled
+MINECRAFT_SERVER_PORT=value # it is assumed that query port is same as server port
 MINECRAFT_RCON_PASS=value
 MINECRAFT_RCON_PORT=value
+SSH_LOG_PATH=path/to/latest.log
+
+# validating jwts
 SIGNING_SECRET=value
+
+# to deploy
+# A NOTE ON REGION:
+# the reason its named "VM region" is because we usually keep the vm and rest of the things in the
+# same region. so this same var can be reused. its sort of misleading but too lazy to change
 GOOGLE_CLOUD_VM_REGION=value
 GOOGLE_CLOUD_AR_REPO_NAME=value
 GOOGLE_CLOUD_CR_SERVICE_NAME=value
-FE_HOST=value
-GOOGLE_APPLICATION_CREDENTIALS=value
-SSH_PRIVATE_KEY_BASE64=value
+
+# for permissions and identity
+GOOGLE_APPLICATION_CREDENTIALS=value # for local
+GOOGLE_SERVICE_ACCOUNT_EMAIL=value # for local, will be inferred in the deployment script
+
+# for log fetching via ssh
+SSH_PRIVATE_KEY_BASE64=value # get the ssh key and convert it into base64
 SSH_VM_USER=value
-SSH_LOG_PATH=path/to/latest.log
 ```
 
 ## Running the app
