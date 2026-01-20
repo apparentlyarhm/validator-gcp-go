@@ -72,6 +72,7 @@ REQUIRED_VARS=(
     "SSH_PRIVATE_KEY_BASE64"
     "SSH_VM_USER"
     "SSH_LOG_PATH"
+    "GOOGLE_SERVICE_ACCOUNT_EMAIL"
 )
 
 echo "3. Verifying all required environment variables are set..."
@@ -84,14 +85,12 @@ echo -e "${GREEN}All required variables are set!${NC}"
 
 ## IMPORTANT: EVER SINCE WE MOVED ON TO GO, WE NEED TO PROVIDE `GOOGLE_SERVICE_ACCOUNT_EMAIL`
 ## AS ENV VAR TO SIGN BLOBS.
-export SERVICE_ACCOUNT="main-53fas@${GOOGLE_CLOUD_PROJECT}.iam.gserviceaccount.com"
 export IMAGE_NAME="${GOOGLE_CLOUD_VM_REGION}-docker.pkg.dev/${GOOGLE_CLOUD_PROJECT}/${GOOGLE_CLOUD_AR_REPO_NAME}/${GOOGLE_CLOUD_CR_SERVICE_NAME}:latest"
-export GOOGLE_CLOUD_SERVICE_ACCOUNT_EMAIL="$SERVICE_ACCOUNT"
 
 # im just lazy
 
 echo -e "${CYAN}--- Configuration ---${NC}"
-echo "Service Account: ${SERVICE_ACCOUNT}"
+echo "Service Account: ${GOOGLE_SERVICE_ACCOUNT_EMAIL}"
 echo "Image Name:      ${IMAGE_NAME}"
 echo -e "${CYAN}-------------------${NC}"
 
@@ -121,8 +120,6 @@ ENV_VARS_STRING=""
 for var in "${REQUIRED_VARS[@]}"; do
   ENV_VARS_STRING+="${var}=${!var},"
 done
-# Append the specific Service Account Email var we constructed manually
-ENV_VARS_STRING+="GOOGLE_SERVICE_ACCOUNT_EMAIL=${GOOGLE_SERVICE_ACCOUNT_EMAIL}"
 
 # Remove trailing comma
 ENV_VARS_STRING=${ENV_VARS_STRING%,}
@@ -133,7 +130,7 @@ echo "7. Deploying to Google Cloud Run..."
 gcloud run deploy "$GOOGLE_CLOUD_CR_SERVICE_NAME" \
   --image="$IMAGE_NAME" \
   --platform=managed \
-  --service-account="$SERVICE_ACCOUNT" \
+  --service-account="$GOOGLE_SERVICE_ACCOUNT_EMAIL" \
   --region="$GOOGLE_CLOUD_VM_REGION" \
   --set-env-vars="$ENV_VARS_STRING" \
   --allow-unauthenticated \
