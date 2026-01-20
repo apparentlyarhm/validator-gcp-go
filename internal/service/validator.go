@@ -117,6 +117,7 @@ func (s *ValidatorService) GetMachineDetails(ctx context.Context) (*models.Insta
 		CreationTimestamp: i.GetCreationTimestamp(),
 		PublicIp:          publicIp,
 		CpuCores:          int(mt.GetGuestCpus()),
+		CpuPlatform:       i.GetCpuPlatform(),
 		MemoryMb:          int(mt.GetMemoryMb()),
 		DiskGb:            int32(diskSize),
 	}
