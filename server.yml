@@ -1,0 +1,29 @@
+version: "3.8"
+services:
+  mc:
+    image: itzg/minecraft-server:java21
+    container_name: mcsv
+    restart: unless-stopped
+    ports:
+      - "25565:25565"
+      - "30000:30000"
+    environment:
+      EULA: "TRUE"
+      TYPE: "NEOFORGE" 
+      VERSION: "1.21.1"
+      NEOFORGE_VERSION: "21.1.216"
+
+      MEMORY: "10G"
+
+      ENABLE_RCON: "true"
+      RCON_PASSWORD: "test" 
+      RCON_PORT: 30000
+
+      OVERRIDE_SERVER_PROPERTIES: "false"
+
+      USE_AIKAR_FLAGS: "true"
+      UID: 1000
+      GID: 1000
+
+    volumes:
+      - ./mc-data:/data
