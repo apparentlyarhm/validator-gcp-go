@@ -1,6 +1,8 @@
+# Bastion
+
 ## Introduction
 
-This repository contains the backend service for the GCP Minecraft Control Panel. 
+This repository contains the backend service for <i>Bastion</i>, a Custom Minecraft Control Panel. 
 Built with Golang, this application provides a REST API to interface with a 
 Minecraft server hosted on Google Cloud Platform.
 
