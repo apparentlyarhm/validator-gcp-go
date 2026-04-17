@@ -47,7 +47,7 @@ func GlobalRouter(h *GlobalHandler) http.Handler {
 
 	// there isnt much going on globally
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000", "https://mccon.arhm.dev"},
+		AllowedOrigins:   []string{"http://localhost:3000", "https://bastion.arhm.dev"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		AllowCredentials: true,
