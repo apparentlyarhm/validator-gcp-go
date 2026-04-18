@@ -79,20 +79,25 @@ func GlobalRouter(h *GlobalHandler) http.Handler {
 
 		r.Group(func(r chi.Router) {
 			r.Use(AuthMiddleware(h.Auth))
-
-			r.Route("/mods", func(r chi.Router) {
-				r.Get("/", h.GetMods)
-				r.Get("/download/{filename}", h.DownloadMod)
-			})
-
-			r.Post("/execute", h.ExecuteRcon)
-			r.Get("/logs", h.GetRecentLogs)
-
 			r.Group(func(r chi.Router) {
-				r.Use(RequireRole("ADMIN"))
 
-				r.Patch("/firewall/purge", h.PurgeFirewall)
-				r.Patch("/firewall/make-public", h.MakePublic)
+				// improve logic
+				r.Use(RequireRole("ADMIN", "USER"))
+
+				r.Route("/mods", func(r chi.Router) {
+					r.Get("/", h.GetMods)
+					r.Get("/download/{filename}", h.DownloadMod)
+				})
+
+				r.Post("/execute", h.ExecuteRcon)
+				r.Get("/logs", h.GetRecentLogs)
+
+				r.Group(func(r chi.Router) {
+					r.Use(RequireRole("ADMIN"))
+
+					r.Patch("/firewall/purge", h.PurgeFirewall)
+					r.Patch("/firewall/make-public", h.MakePublic)
+				})
 			})
 		})
 
