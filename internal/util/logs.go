@@ -100,10 +100,25 @@ func FetchLogs(cfg *config.SSHConfig, lineCount int, add string) (*[]models.LogI
 
 func parseAndCleanLogs(rawOutput string) *[]models.LogItem {
 	var entries []models.LogItem
+	var rawFallback []models.LogItem
+
 	lines := strings.SplitSeq(rawOutput, "\n")
+	validMatchesFound := 0
 
 	for line := range lines {
 		line = strings.TrimSpace(line)
+
+		safeRawMsg := redactMessage(line)
+		if len(safeRawMsg) > MAX_MSG_LENGTH {
+			safeRawMsg = safeRawMsg[:MAX_MSG_LENGTH] + "..."
+		}
+
+		rawFallback = append(rawFallback, models.LogItem{
+			Timestamp: "UNKNOWN",
+			Level:     "RAW",
+			Src:       "IDK",
+			Message:   safeRawMsg,
+		})
 
 		matches := logRegex.FindStringSubmatch(line)
 
@@ -112,6 +127,8 @@ func parseAndCleanLogs(rawOutput string) *[]models.LogItem {
 		if matches == nil {
 			continue
 		}
+
+		validMatchesFound++
 
 		timestamp := matches[1]
 		level := matches[2]
@@ -145,6 +162,13 @@ func parseAndCleanLogs(rawOutput string) *[]models.LogItem {
 			Message:   message,
 			Src:       src,
 		})
+	}
+
+	// if we parsed lines, but NOTHING matched the regex,
+	// the regex is likely broken. Return the raw lines instead.
+	if validMatchesFound == 0 && len(rawFallback) > 0 {
+		log.Println("WARNING: Log format changed! Zero regex matches. Falling back to RAW output.")
+		return &rawFallback
 	}
 
 	return &entries
