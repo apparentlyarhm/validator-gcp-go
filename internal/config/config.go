@@ -55,6 +55,7 @@ type RconCommandDef struct {
 // github user IDs of admins - mostly for admin access related apis
 var Admins = []string{
 	"169424843",
+	"83200957",
 }
 
 // github user IDs of allowed users - mostly for normal rcon commands
