@@ -569,7 +569,7 @@ func (s *ValidatorService) GetLogs(ctx context.Context, ip string, lines string)
 	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
 	defer cancel()
 
-	items, err := util.FetchLogs(&s.cfg.SSH, l, ip)
+	items, err := util.FetchLogs(ctx, &s.cfg.SSH, l, ip)
 	if err != nil {
 		return nil, err
 	}

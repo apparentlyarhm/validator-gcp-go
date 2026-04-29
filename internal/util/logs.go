@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"regexp"
@@ -45,7 +46,7 @@ connects to the vm via ssh and fetches recent logs.
 
 All errors that occur here are internal.
 */
-func FetchLogs(cfg *config.SSHConfig, lineCount int, add string) (*[]models.LogItem, error) {
+func FetchLogs(ctx context.Context, cfg *config.SSHConfig, lineCount int, add string) (*[]models.LogItem, error) {
 	key, e := config.GetPrivateKey(cfg.PKeyB64)
 	if e != nil {
 		return nil, apperror.ErrInternal
@@ -85,11 +86,35 @@ func FetchLogs(cfg *config.SSHConfig, lineCount int, add string) (*[]models.LogI
 	defer session.Close()
 
 	cmd := fmt.Sprintf("tail -n %d %s", lineCount, cfg.LogPath)
-	outputBytes, err := session.CombinedOutput(cmd)
-	if err != nil {
-		log.Printf("failed to run command: %v\nOutput: %s", err, string(outputBytes))
-		return nil, apperror.ErrInternal
 
+	// under load, the vm can actually fail in a half-state where it accepts TCP
+	// but does nothing afterwards. we started getting this problem in the cobbleverse server
+	// powered by docker.
+
+	// we now pass the ctx from upstream with timeout to hard cancel the command if the vm is
+	// in this vegetative state.
+
+	// this bit spawns a goroutine to run the command and waits for either the command to finish or the context to timeout/cancel.
+	done := make(chan struct{}) // empty channel
+	var outputBytes []byte
+	var execErr error
+
+	go func() {
+		outputBytes, execErr = session.CombinedOutput(cmd)
+		close(done) // close the open channel to signal completion
+	}()
+
+	select {
+	case <-done:
+		if execErr != nil {
+			log.Printf("failed to run command: %v\nOutput: %s", execErr, string(outputBytes))
+			return nil, apperror.ErrInternal
+		}
+
+	case <-ctx.Done():
+		_ = session.Close()
+		_ = client.Close()
+		return nil, ctx.Err()
 	}
 
 	rawOutput := string(outputBytes)
