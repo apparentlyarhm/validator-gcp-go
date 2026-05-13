@@ -566,7 +566,7 @@ func (s *ValidatorService) GetLogs(ctx context.Context, ip string, lines string)
 		return nil, apperror.ErrBadRequest
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 8*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	items, err := util.FetchLogs(ctx, &s.cfg.SSH, l, ip)
