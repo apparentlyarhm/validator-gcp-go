@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net"
 	"regexp"
 	"strings"
 	"time"
@@ -47,6 +48,19 @@ connects to the vm via ssh and fetches recent logs.
 All errors that occur here are internal.
 */
 func FetchLogs(ctx context.Context, cfg *config.SSHConfig, lineCount int, add string) (*[]models.LogItem, error) {
+	// IMPORTANT: read this
+
+	// under load, the vm can actually fail in a half-state where it accepts TCP
+	// but does nothing afterwards. we started getting this problem in the cobbleverse server
+	// powered by docker.
+
+	// the ssh library doesnt respect context. so, Timeout in ClientConfig only applies to the initial TCP
+	// AFTER its connected and has performed the handshake, the goroutine at the end will handle timeout there.
+	// that leaves us with the handshake phase, which WILL hang if not handled by a custom dialer.
+
+	// we now pass the ctx from upstream with timeout to hard cancel the command if the vm is
+	// in this vegetative state.
+
 	key, e := config.GetPrivateKey(cfg.PKeyB64)
 	if e != nil {
 		return nil, apperror.ErrInternal
@@ -56,6 +70,7 @@ func FetchLogs(ctx context.Context, cfg *config.SSHConfig, lineCount int, add st
 	if err != nil {
 		return nil, apperror.ErrInternal
 	}
+	eh := "string" // testing
 
 	// TODO: Explore HostKeyCallback options for better security
 	config := &ssh.ClientConfig{
@@ -63,18 +78,47 @@ func FetchLogs(ctx context.Context, cfg *config.SSHConfig, lineCount int, add st
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // will update later
-		Timeout:         5 * time.Second,
+		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+			// Calculate fingerprint
+			fingerprint := ssh.FingerprintSHA256(key)
+
+			// Compare
+			if fingerprint != eh {
+				return fmt.Errorf("host key mismatch: got %s, expected %s", fingerprint, eh)
+			}
+			log.Printf("Host key verified: %s\n", fingerprint)
+			return nil
+		},
+		Timeout: 5 * time.Second,
 	}
 
 	log.Printf("Connecting to %s@%s...\n", cfg.User[0:4], add[0:3])
-	client, err := ssh.Dial("tcp", add+":22", config)
-	if err != nil {
-		log.Printf("failed to dial: %v", err)
-		return nil, apperror.ErrInternal
 
+	// based on the above, this is our custom dialer.
+	dialer := net.Dialer{}
+	conn, err := dialer.DialContext(ctx, "tcp", add+":22")
+	if err != nil {
+		log.Printf("failed to dial tcp: %v", err)
+		return nil, apperror.ErrInternal
 	}
 
+	deadline, ok := ctx.Deadline()
+	if ok {
+		_ = conn.SetDeadline(deadline)
+	}
+
+	// perform the SSH handshake over the TCP connection
+	c, chans, reqs, err := ssh.NewClientConn(conn, add+":22", config)
+	if err != nil {
+		_ = conn.Close()
+		log.Printf("possible vm vegetative state: %v", err)
+		return nil, apperror.ErrInternal
+	}
+	// we have to remove the deadline in case the actual command takes time
+	_ = conn.SetDeadline(time.Time{})
+
+	// create client
+	client := ssh.NewClient(c, chans, reqs)
 	defer client.Close()
 
 	session, err := client.NewSession()
@@ -86,13 +130,6 @@ func FetchLogs(ctx context.Context, cfg *config.SSHConfig, lineCount int, add st
 	defer session.Close()
 
 	cmd := fmt.Sprintf("tail -n %d %s", lineCount, cfg.LogPath)
-
-	// under load, the vm can actually fail in a half-state where it accepts TCP
-	// but does nothing afterwards. we started getting this problem in the cobbleverse server
-	// powered by docker.
-
-	// we now pass the ctx from upstream with timeout to hard cancel the command if the vm is
-	// in this vegetative state.
 
 	// this bit spawns a goroutine to run the command and waits for either the command to finish or the context to timeout/cancel.
 	done := make(chan struct{}) // empty channel
