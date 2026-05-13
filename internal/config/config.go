@@ -40,10 +40,11 @@ type MinecraftConfig struct {
 }
 
 type SSHConfig struct {
-	User    string `envconfig:"SSH_VM_USER" required:"true"`
-	LogPath string `envconfig:"SSH_LOG_PATH" required:"true"`
-	PKeyB64 string `envconfig:"SSH_PRIVATE_KEY_BASE64" required:"true"`
-	PKey    string // we dont need to populate it right away
+	User        string `envconfig:"SSH_VM_USER" required:"true"`
+	LogPath     string `envconfig:"SSH_LOG_PATH" required:"true"`
+	PKeyB64     string `envconfig:"SSH_PRIVATE_KEY_BASE64" required:"true"`
+	HostKeyHash string `envconfig:"SSH_HOST_KEY_HASH" required:"true"` // this is the SHA256 hash of the host key for verification, uses ed25519
+	PKey        string // we dont need to populate it right away
 }
 
 type RconCommandDef struct {

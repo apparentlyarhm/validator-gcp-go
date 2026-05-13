@@ -70,26 +70,25 @@ func FetchLogs(ctx context.Context, cfg *config.SSHConfig, lineCount int, add st
 	if err != nil {
 		return nil, apperror.ErrInternal
 	}
-	eh := "string" // testing
 
-	// TODO: Explore HostKeyCallback options for better security
 	config := &ssh.ClientConfig{
 		User: cfg.User,
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
 		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-			// Calculate fingerprint
 			fingerprint := ssh.FingerprintSHA256(key)
 
 			// Compare
-			if fingerprint != eh {
-				return fmt.Errorf("host key mismatch: got %s, expected %s", fingerprint, eh)
+			if fingerprint != cfg.HostKeyHash {
+				return fmt.Errorf("host key mismatch, have to abort")
 			}
-			log.Printf("Host key verified: %s\n", fingerprint)
+
+			log.Printf("Host key has been verified, welcome ::  %s\n", fingerprint)
 			return nil
 		},
-		Timeout: 5 * time.Second,
+		HostKeyAlgorithms: []string{ssh.KeyAlgoED25519}, // uhhhh
+		Timeout:           5 * time.Second,
 	}
 
 	log.Printf("Connecting to %s@%s...\n", cfg.User[0:4], add[0:3])
@@ -111,7 +110,7 @@ func FetchLogs(ctx context.Context, cfg *config.SSHConfig, lineCount int, add st
 	c, chans, reqs, err := ssh.NewClientConn(conn, add+":22", config)
 	if err != nil {
 		_ = conn.Close()
-		log.Printf("possible vm vegetative state: %v", err)
+		log.Printf("could not connect: %v", err)
 		return nil, apperror.ErrInternal
 	}
 	// we have to remove the deadline in case the actual command takes time
