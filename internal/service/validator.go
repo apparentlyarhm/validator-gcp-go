@@ -25,6 +25,7 @@ import (
 
 const PUBLIC_WILDCARD = "0.0.0.0/0"
 const BASIC_IPV4 = "1.1.1.1/32"
+const API_CALL_TIMEOUT = 20 * time.Second // timeout for all contexts that use the gcloud client library functions aka their APIs
 
 type ValidatorService struct {
 	cfg *config.Config
@@ -65,7 +66,7 @@ Returns the detailed config of the VM running the minecraft server.
 */
 func (s *ValidatorService) GetMachineDetails(ctx context.Context) (*models.InstanceDetailResponse, error) {
 
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Second) // fair timeout?
+	ctx, cancel := context.WithTimeout(ctx, API_CALL_TIMEOUT) // fair timeout?
 	defer cancel()
 
 	r := &computepb.GetInstanceRequest{
@@ -149,7 +150,7 @@ func (s *ValidatorService) IsIpPresent(ctx context.Context, ip string) (*models.
 	}
 
 	var target = ip + "/32" // this method will only deal with single IPs
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, API_CALL_TIMEOUT)
 	defer cancel()
 
 	r := &computepb.GetFirewallRequest{
@@ -186,7 +187,7 @@ func (s *ValidatorService) AddIpToFirewall(ctx context.Context, req *models.Addr
 	}
 
 	var target = ip + "/32" // this method will only deal with single IPs
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, API_CALL_TIMEOUT)
 	defer cancel()
 
 	r := &computepb.GetFirewallRequest{
@@ -246,7 +247,7 @@ Removes all IPs from the firewall and adds a dummy - 1.1.1.1/32,
 effectively preventing public access to resources until ips are populated back in
 */
 func (s *ValidatorService) PurgeFirewall(ctx context.Context) (*models.CommonResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, API_CALL_TIMEOUT)
 	defer cancel()
 
 	var ips []string
@@ -280,7 +281,7 @@ effectively allowing public access to resources (minecraft server)
 */
 func (s *ValidatorService) AllowPublicAccess(ctx context.Context) (*models.CommonResponse, error) {
 	var target = "0.0.0.0" + "/0"
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, API_CALL_TIMEOUT)
 	defer cancel()
 
 	var ips []string
@@ -312,7 +313,7 @@ func (s *ValidatorService) AllowPublicAccess(ctx context.Context) (*models.Commo
 Returns a minimal info about the firewall. at the time of writing this, its not really used anywhere.
 */
 func (s *ValidatorService) GetFirewallDetails(ctx context.Context) (*models.FirwallRuleResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, API_CALL_TIMEOUT)
 	defer cancel()
 
 	r := &computepb.GetFirewallRequest{
@@ -344,7 +345,7 @@ Reads the modlist.txt on the associated bucket, parses its contents and file's u
 to return to the frontend. ".jar" substring is stripped from all file names.
 */
 func (s *ValidatorService) GetModList(ctx context.Context) (*models.ModListResponse, error) {
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, API_CALL_TIMEOUT)
 	defer cancel()
 
 	var mods []string
@@ -398,7 +399,7 @@ func (s *ValidatorService) Download(ctx context.Context, filename string) (*mode
 		return nil, apperror.MapError(err)
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, API_CALL_TIMEOUT)
 	defer cancel()
 
 	/*
