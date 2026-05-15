@@ -79,7 +79,7 @@ If you are using this app, make sure to supply it with your own client ID and se
 There are 3 roles that the server allocates. see `config.go`.
 `USER`,`ADMIN` from the hardcoded slice defined, and `ANON` if it isnt in either list.
 
-**Practically, the amount of priviledge `ANON has is equal to not logging in at all.**
+**Practically, the amount of priviledge `ANON` has is equal to not logging in at all.**
 
 ### A note:
 
@@ -130,6 +130,7 @@ GOOGLE_SERVICE_ACCOUNT_EMAIL=value # for local, will be inferred in the deployme
 # for log fetching via ssh
 SSH_PRIVATE_KEY_BASE64=value # get the ssh key and convert it into base64
 SSH_VM_USER=value
+SSH_HOST_KEY_HASH=value # it took me this long to add this idk why
 ```
 
 ## Running the app
