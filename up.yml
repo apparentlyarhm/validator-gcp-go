@@ -1,0 +1,57 @@
+services:
+  mc:
+    #  attach and interact with the Minecraft server
+    stdin_open: true
+    tty: true
+    
+    image: itzg/minecraft-server:java21
+    restart: unless-stopped
+    ports:
+      - "25565:25565/tcp"
+      - "30000:25575"
+      - "25565:25565/udp"
+      - "25585:25585"
+    environment:
+      EULA: "TRUE"
+      
+      ENABLE_RCON: "true"
+      ENABLE_QUERY: "true"
+      RCON_PASSWORD: "Z2F5YXNzbmlnZ2E="
+      
+      TYPE: "FABRIC"
+      VERSION: "1.21.1"
+      MOTD: "verma is gay"
+      
+      MEMORY: "27648M"
+      
+      ONLINE_MODE: "false"
+      ENFORCE_SECURE_PROFILE: "false"
+      
+      TZ: "Asia/Kolkata"
+      
+      DIFFICULTY: "2"
+      LEVEL: "cverse-18apr-attempt16-vermabhadwa"
+      
+      STOP_DURATION: 60
+
+      JVM_XX_OPTS: "-XX:+UseZGC -XX:+ZGenerational -XX:+AlwaysPreTouch
+        -XX:+DisableExplicitGC -XX:+PerfDisableSharedMem
+        -XX:+UseStringDeduplication"
+      EXTRA_ARGS: "nogui"
+    volumes:
+      # file system is persistent outside of the container
+      - "./int-fs:/data"
+      - "./mods:/data/mods"
+  prom:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    depends_on:
+      - mc
+
+volumes:
+  prometheus_data:
