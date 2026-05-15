@@ -81,10 +81,6 @@ There are 3 roles that the server allocates. see `config.go`.
 
 **Practically, the amount of priviledge `ANON` has is equal to not logging in at all.**
 
-### A note:
-
-when tokens are expired, the server returns 401 instead of 403. the 401 triggers auto login on the frontend.
-
 ## Example Flow: Viewing Server Logs
 
 1. Authenticate via GitHub OAuth
