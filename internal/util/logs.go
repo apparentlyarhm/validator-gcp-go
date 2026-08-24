@@ -169,6 +169,10 @@ func parseAndCleanLogs(rawOutput string) *[]models.LogItem {
 	for line := range lines {
 		line = strings.TrimSpace(line)
 
+		if strings.Contains(line, "at ") || strings.Contains(line, "Caused by:") || line == "" {
+			continue
+		}
+
 		safeRawMsg := redactMessage(line)
 		if len(safeRawMsg) > MAX_MSG_LENGTH {
 			safeRawMsg = safeRawMsg[:MAX_MSG_LENGTH] + "..."
