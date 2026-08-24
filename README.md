@@ -141,6 +141,16 @@ ssh-keygen -t ed25519 -f ./vm_key -C "go-app-user" -N ""
 
 Copy the public key to `SSH Keys` in `Instance Metadata` on Compute Engine settings section of a VM.
 
+## Finding the new host key, in case VMs were migrated:
+
+Since on changing the VM, the host key will change, you can find the new host key by running the following command on your local machine, assuming that OpenSSH is installed (scripts to generate are run automatically on Linux)
+
+```bash
+ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub -E sha256
+```
+
+Also it seems that key carryforward might give unexplained ssh connection issues, so its just better to generate a keypair and update instance metadata accordingly.
+
 
 ## See also- related repos
 
