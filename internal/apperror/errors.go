@@ -10,6 +10,8 @@ var (
 
 	// This is based on the exceptions I defined in my original spring boot app.
 
+	ErrUnauthorized = errors.New("unauthorized access")
+
 	// ErrNotFound: Matches NotFoundException (Custom & GCP)
 	ErrNotFound = errors.New("the queried resource was not found")
 
@@ -23,7 +25,7 @@ var (
 	ErrForbidden = errors.New("you do not have permission to perform this action")
 
 	// Will help us for all socket/TCP connection failures
-	ErrInternal = errors.New("")
+	ErrInternal = errors.New("internal server error")
 
 	INTERNAL_MESSAGE = "Internal Server Error"
 )

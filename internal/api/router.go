@@ -54,6 +54,7 @@ func GlobalRouter(h *GlobalHandler) http.Handler {
 		MaxAge:           300,
 	}))
 
+	r.Use(RecordMiddleware(h.Auth))
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
@@ -63,6 +64,8 @@ func GlobalRouter(h *GlobalHandler) http.Handler {
 		r.Get("/ping", h.Pong)
 		r.Get("/machine", h.GetMachineDetails)
 		r.Get("/server-info", h.GetServerInfo)
+		r.Get("/metrics", h.GetMetrics)
+		r.Get("/metrics/series", h.GetMetricsTimeSeries)
 
 		r.Route("/firewall", func(r chi.Router) {
 			r.Get("/", h.GetFirewallDetails)

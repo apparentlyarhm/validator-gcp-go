@@ -90,3 +90,18 @@ type LogItem struct {
 type LogResponse struct {
 	Items []LogItem `json:"items"`
 }
+
+type MinecraftMetricsResponse struct {
+	LoadedChunks      float64 `json:"loaded_chunks"`
+	TotalLoadedChunks float64 `json:"total_loaded_chunks"`
+	MSPT              float64 `json:"mspt"`
+	TPS               float64 `json:"tps"`
+	PlayersOnline     float64 `json:"players_online"`
+	Entities          float64 `json:"entities"`
+	Handshakes        float64 `json:"handshakes"`
+}
+
+type MinecraftMetricTimeSeries struct {
+	Metric string       `json:"metric"`
+	Values []PromSample `json:"values"`
+}

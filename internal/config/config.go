@@ -12,9 +12,16 @@ type Config struct {
 	SigningSecret string `envconfig:"SIGNING_SECRET" required:"true"`
 	GitHub        GitHubConfig
 	GoogleCloud   GoogleCloudConfig
+	Metrics       MetricConfig
 	Minecraft     MinecraftConfig
 	FeHost        string `envconfig:"FE_HOST" default:"http://localhost:3000"`
 	SSH           SSHConfig
+}
+
+type MetricConfig struct {
+	PrometheusApiKey string `envconfig:"PROMETHEUS_API_KEY" required:"false"`
+	PrometheusPort   int    `envconfig:"PROMETHEUS_PORT" default:"1111"`
+	// endpoint is usually vm ip adress.
 }
 
 type GitHubConfig struct {
@@ -88,6 +95,7 @@ func Load() (Config, error) {
 	fmt.Printf("[ENV] associated modlist file :: %v\n", cfg.GoogleCloud.ModlistFile)
 	fmt.Printf("[ENV] Enabled RCON commands: %v\n", len(RconCommandsMap))
 	fmt.Printf("[ENV] Configured frontend: %v\n", cfg.FeHost)
+	fmt.Printf("[ENV] LEN Prometheus API key: %v\n", len(cfg.Metrics.PrometheusApiKey))
 
 	return cfg, nil
 }

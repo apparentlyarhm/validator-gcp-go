@@ -38,9 +38,11 @@ https://arhm.dev
 	}
 
 	// validator service
-	vs, e := service.NewValidatorService(&cfg)
+	vs, e := service.NewValidatorService(&cfg, &http.Client{
+		Timeout: 10 * time.Second,
+	})
 	if e != nil {
-		log.Fatalf("FATAL: could not validator service: %v", err)
+		log.Fatalf("FATAL: could not start validator service: %v", e)
 	}
 
 	a := service.AuthService{
