@@ -52,7 +52,7 @@ func (m Metric) Query() (string, bool) {
 	case MetricPlayers:
 		return "minecraft_players_online", true
 	case MetricEntities:
-		return "minecraft_entities", true
+		return "sum(minecraft_entities{group=~\"creature|monster\",world=\"overworld\"})", true
 	case MetricChunksOverworld:
 		return "minecraft_loaded_chunks{world=\"overworld\"}", true
 	case MetricTotalChunks:
@@ -68,7 +68,7 @@ func (m Metric) Query() (string, bool) {
 	case JVMMemoryMaxHeap:
 		return "jvm_memory_bytes_max{area=\"heap\"}", true
 	case JVMGc:
-		return "sum(rate(jvm_gc_collection_seconds_count[5m]))", true
+		return "sum(increase(jvm_gc_collection_seconds_count[5m]))", true // how many GC collections happened in the last 5 minutes, across all types
 	case Cpu:
 		return "rate(process_cpu_seconds_total[5m]) * 100", true
 	default:
