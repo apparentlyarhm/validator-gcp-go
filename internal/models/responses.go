@@ -107,6 +107,16 @@ type MinecraftMetricsResponse struct {
 	Cpu               float64 `json:"cpu"`
 }
 
+type PromSample struct {
+	Timestamp float64 `json:"timestamp"`
+	Value     float64 `json:"value"`
+}
+
+type PromTimeSeries struct {
+	Metric map[string]string `json:"metric"`
+	Values []PromSample      `json:"values"`
+}
+
 type MinecraftMetricTimeSeries struct {
 	Metric string       `json:"metric"`
 	Values []PromSample `json:"values"`
