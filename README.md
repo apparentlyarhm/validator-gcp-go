@@ -152,6 +152,138 @@ ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub -E sha256
 Also it seems that key carryforward might give unexplained ssh connection issues, so its just better to generate a keypair and update instance metadata accordingly.
 
 
+## A possible Prometheus setup
+
+This app can interface with the Prometheus monitoring system to query metrics related to the Minecraft server. You need to setup:
+
+- some sort of export, for example a combination of Spark and FabricExporter for fabric 
+servers, which exposes the metrics to Prometheus.
+- prometheus itself, which can scrape this data into its known api contract
+- optionally, a Caddy or Nginx reverse proxy to handle Security if you really want (this app is configured for an api key)
+
+These commands below will help you get started,
+
+```bash
+# create a prometheus user (no login allowed for security)
+sudo useradd --no-create-home --shell /bin/false prometheus
+
+# create directories for configuration and data
+sudo mkdir /etc/prometheus
+sudo mkdir /var/lib/prometheus
+
+# get prometheus, you can get whatever you want, just make sure it works
+cd /tmp
+wget https://github.com/prometheus/prometheus/releases/download/v3.14.0/prometheus-3.14.0.linux-amd64.tar.gz
+
+tar xvf prometheus-*.tar.gz
+cd prometheus-3.14.0.linux-amd64/
+
+# move binaries to your system path
+sudo cp prometheus promtool /usr/local/bin/ 
+sudo chown prometheus:prometheus /usr/local/bin/prometheus /usr/local/bin/promtool
+
+# move default configuration files
+sudo cp -r consoles/ console_libraries/ /etc/prometheus/ # theses may or may not be present
+sudo chown -R prometheus:prometheus /etc/prometheus /var/lib/prometheus
+```
+
+Then, edit the Prometheus configuration file to include the Minecraft server scrape job:
+
+```bash
+sudo nano /etc/prometheus/prometheus.yml
+```
+
+Add the following content:
+
+```yaml
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'some-name'
+    static_configs:
+      - targets: ['localhost:<port>']
+```
+Then,
+```bash
+sudo chown prometheus:prometheus /etc/prometheus/prometheus.yml
+```
+
+create a systemd service file for Prometheus:
+
+```bash
+sudo nano /etc/systemd/system/prometheus.service
+```
+
+Add:
+```ini
+[Unit]
+Description=Prometheus Time Series Collection and Processing Server
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=prometheus
+Group=prometheus
+Type=simple
+# Notice the --web.listen-address! This ensures Prometheus CANNOT be accessed from the internet directly.
+ExecStart=/usr/local/bin/prometheus \
+    --config.file /etc/prometheus/prometheus.yml \
+    --storage.tsdb.path /var/lib/prometheus/ \
+    --web.listen-address=127.0.0.1:9090 \
+    --web.console.templates=/etc/prometheus/consoles \
+    --web.console.libraries=/etc/prometheus/console_libraries
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+```
+This is fairly barebones.
+
+finally:
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable prometheus
+sudo systemctl start prometheus
+```
+
+## ..and a Caddy setup to go with it
+
+```bash
+sudo apt install -y debian-keyring debian-archive-keyring apt-transport-https curl
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | sudo gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' | sudo tee /etc/apt/sources.list.d/caddy-stable.list
+sudo apt update
+sudo apt install caddy
+```
+
+Then, edit the Caddyfile:
+
+```bash
+sudo nano /etc/caddy/Caddyfile
+```
+to maybe add something like:
+
+```caddy
+:9091 {
+    # 1. Require the API key
+    @denied not header X-API-Key "your-super-secret-api-key-here"
+    respond @denied "Unauthorized" 401
+
+    # 2. Proxy to Prometheus
+    reverse_proxy 127.0.0.1:9090
+}
+```
+
+Then, restart Caddy:
+
+```bash
+sudo systemctl restart caddy
+```
+ezpz
+
 ## See also- related repos
 
 [the terraform-based orchaestrator](https://github.com/apparentlyarhm/minecraft-terraform)
