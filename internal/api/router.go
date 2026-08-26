@@ -54,7 +54,6 @@ func GlobalRouter(h *GlobalHandler) http.Handler {
 		MaxAge:           300,
 	}))
 
-	r.Use(RecordMiddleware(h.Auth))
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
