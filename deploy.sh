@@ -74,6 +74,8 @@ REQUIRED_VARS=(
     "SSH_LOG_PATH"
     "SSH_HOST_KEY_HASH"
     "GOOGLE_SERVICE_ACCOUNT_EMAIL"
+    "PROMETHEUS_API_KEY"
+    "PROMETHEUS_PORT"
 )
 
 echo "3. Verifying all required environment variables are set..."
