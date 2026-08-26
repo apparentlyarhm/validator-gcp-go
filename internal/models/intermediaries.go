@@ -25,16 +25,6 @@ type PromQueryRangeResponse struct {
 	Error     string `json:"error,omitempty"`
 }
 
-// type PromQueryRangeResponse struct {
-// 	Status string `json:"status"`
-// 	Data   struct {
-// 		ResultType string           `json:"resultType"`
-// 		Result     []PromTimeSeries `json:"result"`
-// 	} `json:"data"`
-// 	ErrorType string `json:"errorType,omitempty"`
-// 	Error     string `json:"error,omitempty"`
-// }
-
 type PromSample struct {
 	Timestamp float64
 	Value     float64
