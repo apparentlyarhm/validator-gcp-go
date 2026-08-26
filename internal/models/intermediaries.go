@@ -25,16 +25,6 @@ type PromQueryRangeResponse struct {
 	Error     string `json:"error,omitempty"`
 }
 
-type PromSample struct {
-	Timestamp float64
-	Value     float64
-}
-
-type PromTimeSeries struct {
-	Metric map[string]string
-	Values []PromSample
-}
-
 type Metric string
 
 const (
