@@ -638,14 +638,25 @@ func (s *ValidatorService) GetAllMetrics(ctx context.Context, ip string) (*model
 	}
 
 	// fetch parallelly
-	wg.Add(7)
-	go fetch("minecraft_loaded_chunks", &metrics.LoadedChunks)
-	go fetch("minecraft_total_loaded_chunks", &metrics.TotalLoadedChunks)
-	go fetch("minecraft_mspt", &metrics.MSPT)
-	go fetch("minecraft_tps", &metrics.TPS)
-	go fetch("minecraft_players_online", &metrics.PlayersOnline)
-	go fetch("minecraft_entities", &metrics.Entities)
-	go fetch("rate(minecraft_handshakes[5m])", &metrics.Handshakes) // not sure what this is but it was exported in FabricExporter
+	metricQuery := func(metric models.Metric) string {
+		query, _ := metric.Query()
+		return query
+	}
+
+	wg.Add(13)
+	go fetch(metricQuery(models.MetricChunksOverworld), &metrics.LoadedChunks)
+	go fetch(metricQuery(models.MetricTotalChunks), &metrics.TotalLoadedChunks)
+	go fetch(metricQuery(models.MetricMSPT), &metrics.MSPT)
+	go fetch(metricQuery(models.MetricTPS), &metrics.TPS)
+	go fetch(metricQuery(models.MetricPlayers), &metrics.PlayersOnline)
+	go fetch(metricQuery(models.MetricEntities), &metrics.Entities)
+	go fetch(metricQuery(models.MetricHandshakes), &metrics.Handshakes)
+	go fetch(metricQuery(models.JVMMemoryUsedNonHeap), &metrics.JVMMemoryUsed)
+	go fetch(metricQuery(models.JVMMemoryUsedHeap), &metrics.JVMMemoryUsedHeap)
+	go fetch(metricQuery(models.JVMMemoryMaxNonHeap), &metrics.JVMMemoryMax)
+	go fetch(metricQuery(models.JVMMemoryMaxHeap), &metrics.JVMMemoryMaxHeap)
+	go fetch(metricQuery(models.JVMGc), &metrics.JVMGc)
+	go fetch(metricQuery(models.Cpu), &metrics.Cpu)
 
 	wg.Wait()
 

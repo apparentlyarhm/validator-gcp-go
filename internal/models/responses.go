@@ -99,6 +99,12 @@ type MinecraftMetricsResponse struct {
 	PlayersOnline     float64 `json:"players_online"`
 	Entities          float64 `json:"entities"`
 	Handshakes        float64 `json:"handshakes"`
+	JVMMemoryUsed     float64 `json:"jvm_memory_used"`
+	JVMMemoryUsedHeap float64 `json:"jvm_memory_used_heap"`
+	JVMMemoryMax      float64 `json:"jvm_memory_max"`
+	JVMMemoryMaxHeap  float64 `json:"jvm_memory_max_heap"`
+	JVMGc             float64 `json:"jvm_gc"`
+	Cpu               float64 `json:"cpu"`
 }
 
 type MinecraftMetricTimeSeries struct {

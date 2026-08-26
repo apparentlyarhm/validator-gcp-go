@@ -38,12 +38,19 @@ type PromTimeSeries struct {
 type Metric string
 
 const (
-	MetricTPS        Metric = "tps"
-	MetricMSPT       Metric = "mspt"
-	MetricPlayers    Metric = "players"
-	MetricEntities   Metric = "entities"
-	MetricChunks     Metric = "chunks"
-	MetricHandshakes Metric = "handshakes"
+	MetricTPS             Metric = "tps"
+	MetricMSPT            Metric = "mspt"
+	MetricPlayers         Metric = "players"
+	MetricEntities        Metric = "entities"
+	MetricChunksOverworld Metric = "chunks"
+	MetricTotalChunks     Metric = "totalChunks"
+	MetricHandshakes      Metric = "handshakes"
+	JVMMemoryUsedNonHeap  Metric = "jvmMem"
+	JVMMemoryUsedHeap     Metric = "jvmMemHeap"
+	JVMMemoryMaxNonHeap   Metric = "jvmMemMax"
+	JVMMemoryMaxHeap      Metric = "jvmMemMaxHeap"
+	JVMGc                 Metric = "jvmGc"
+	Cpu                   Metric = "cpu"
 )
 
 func (m Metric) Query() (string, bool) {
@@ -56,10 +63,24 @@ func (m Metric) Query() (string, bool) {
 		return "minecraft_players_online", true
 	case MetricEntities:
 		return "minecraft_entities", true
-	case MetricChunks:
-		return "minecraft_loaded_chunks", true
+	case MetricChunksOverworld:
+		return "minecraft_loaded_chunks{world=\"overworld\"}", true
+	case MetricTotalChunks:
+		return "sum(minecraft_loaded_chunks{world=~\"overworld|the_nether|the_end\"})", true
 	case MetricHandshakes:
 		return "rate(minecraft_handshakes[5m])", true
+	case JVMMemoryUsedNonHeap:
+		return "jvm_memory_bytes_used{area=\"nonheap\"}", true
+	case JVMMemoryUsedHeap:
+		return "jvm_memory_bytes_used{area=\"heap\"}", true
+	case JVMMemoryMaxNonHeap:
+		return "jvm_memory_bytes_max{area=\"nonheap\"}", true
+	case JVMMemoryMaxHeap:
+		return "jvm_memory_bytes_max{area=\"heap\"}", true
+	case JVMGc:
+		return "sum(rate(jvm_gc_collection_seconds_count[5m]))", true
+	case Cpu:
+		return "rate(process_cpu_seconds_total[5m]) * 100", true
 	default:
 		return "", false
 	}
