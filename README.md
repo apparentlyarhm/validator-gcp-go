@@ -58,12 +58,16 @@ The API provides a clear and logical set of endpoints for managing the server.
 * GET /firewall: Fetches the current firewall state, currently not in use anywhere
 * GET /firewall/check-ip?ip=val: Checks if a specific IP address is currently whitelisted.
 * GET /server-info?address=val: Gets the server's Message of the Day (MOTD), version, and player count.
+* GET /metrics?address=val: Queries Prometheus for the current snapshot of server metrics, such as TPS, MSPT, players online, chunk counts, JVM memory, and CPU usage.
+* GET /metrics/series?address=val&metric=tps&start=2026-01-01T00:00:00Z&end=2026-01-01T01:00:00Z: Returns a time-series array for a metric between two RFC3339 timestamps. The default step is 15s and the default range is the last hour when start/end are omitted.
 * GET /mods [USER/ADMIN]: Lists all mods currently available on the server.
 * GET /mods/download/{fileName} [USER/ADMIN]: Provides a download link or stream for a specific mod file.
 * GET /logs?address=val&c=count: [USER/ADMIN] Gets a formatted list of logs with fields like Timestamp, level, source and the message it self.
 * PATCH /firewall/add-ip: Adds the requesting user's IP address to the firewall whitelist.
 * PATCH /firewall/purge: [ADMIN] Removes all IP addresses from the firewall whitelist, essentially preventing all public access.
 * PATCH /firewall/make-public: [ADMIN] Opens the server to the public by setting the firewall rule to allow 0.0.0.0/0.
+* GET /metrics?address=val: Queries Prometheus for the current snapshot of server metrics, such as TPS, MSPT, players online, chunk counts, JVM memory, and CPU usage.
+* GET /metrics/series?address=val&metric=tps&start=2026-01-01T00:00:00Z&end=2026-01-01T01:00:00Z: Returns a time-series array for a metric between two RFC3339 timestamps. The default step is 15s and the default range is the last hour when start/end are omitted.
 
 ⚠️ **Warning**
 This endpoint executes commands via RCON on your server.
@@ -127,7 +131,40 @@ GOOGLE_SERVICE_ACCOUNT_EMAIL=value # for local, will be inferred in the deployme
 SSH_PRIVATE_KEY_BASE64=value # get the ssh key and convert it into base64
 SSH_VM_USER=value
 SSH_HOST_KEY_HASH=value # it took me this long to add this idk why
+
+# for prometheus-backed metric queries
+PROMETHEUS_API_KEY=value # shared key expected by the exporter or reverse proxy
+PROMETHEUS_PORT=value # usually 9090 or whichever port exposes the Prometheus API
 ```
+
+## Prometheus-backed metrics
+
+The app can query a Prometheus-compatible exporter on the Minecraft VM and expose the result through the public API. The implementation expects:
+
+- a Prometheus-compatible metrics endpoint reachable at `http://<vm-ip>:<PROMETHEUS_PORT>/api/v1/query`
+- a shared API key in `PROMETHEUS_API_KEY` for authenticated access
+- a valid VM IP passed to the `address` query parameter on the API routes
+
+### Available endpoints
+
+- `GET /api/v2/metrics?address=<vm-ip>`
+  - Returns a single snapshot of the current values for the configured metrics.
+  - Supported metric keys include: `tps`, `mspt`, `players`, `entities`, `chunks`, `totalChunks`, `handshakes`, `jvmMem`, `jvmMemHeap`, `jvmMemMax`, `jvmMemMaxHeap`, `jvmGc`, and `cpu`. (see `intermediaries.go` for details and the promQL expressions)
+
+- `GET /api/v2/metrics/series?address=<vm-ip>&metric=<metric>&start=<RFC3339>&end=<RFC3339>`
+  - Returns a time series for a metric across the requested interval.
+  - If `start` is omitted, it defaults to one hour before now.
+  - If `end` is omitted, it defaults to now.
+  - The backend requests data with a 15-second step.
+
+Example:
+
+```bash
+curl "http://localhost:8080/api/v2/metrics?address=1.1.1.6"
+curl "http://localhost:8080/api/v2/metrics/series?address=1.1.1.6&metric=tps&start=2026-08-27T20:00:00Z&end=2026-08-27T21:00:00Z"
+```
+
+`PROMETHEUS_PORT` is optional in config, but if it is left at the default value `1111`, metric requests are rejected. The same applies when `PROMETHEUS_API_KEY` is blank.
 
 ## Running the app
 
@@ -152,16 +189,15 @@ ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub -E sha256
 Also it seems that key carryforward might give unexplained ssh connection issues, so its just better to generate a keypair and update instance metadata accordingly.
 
 
-## A possible Prometheus setup
+## A possible Prometheus deployment
 
-This app can interface with the Prometheus monitoring system to query metrics related to the Minecraft server. You need to setup:
+This app can interface with the Prometheus monitoring system to query metrics related to the Minecraft server. You need to set up:
 
-- some sort of export, for example a combination of Spark and FabricExporter for fabric 
-servers, which exposes the metrics to Prometheus.
-- prometheus itself, which can scrape this data into its known api contract
-- optionally, a Caddy or Nginx reverse proxy to handle Security if you really want (this app is configured for an api key)
+- a metrics exporter on the Minecraft VM that exposes Prometheus-style values
+- Prometheus itself, scraping that exporter into its standard API contract
+- optionally, a Caddy or Nginx reverse proxy to handle security if you want an API key layer in front of the exporter
 
-These commands below will help you get started,
+These commands below will help you get started:
 
 ```bash
 # create a prometheus user (no login allowed for security)
