@@ -63,8 +63,6 @@ func GlobalRouter(h *GlobalHandler) http.Handler {
 		r.Get("/ping", h.Pong)
 		r.Get("/machine", h.GetMachineDetails)
 		r.Get("/server-info", h.GetServerInfo)
-		r.Get("/metrics", h.GetMetrics)
-		r.Get("/metrics/series", h.GetMetricsTimeSeries)
 
 		r.Route("/firewall", func(r chi.Router) {
 			r.Get("/", h.GetFirewallDetails)
@@ -93,6 +91,8 @@ func GlobalRouter(h *GlobalHandler) http.Handler {
 
 				r.Post("/execute", h.ExecuteRcon)
 				r.Get("/logs", h.GetRecentLogs)
+				r.Get("/metrics", h.GetMetrics)
+				r.Get("/metrics/series", h.GetMetricsTimeSeries)
 
 				r.Group(func(r chi.Router) {
 					r.Use(RequireRole("ADMIN"))
