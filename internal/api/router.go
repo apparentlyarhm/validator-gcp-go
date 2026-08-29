@@ -91,8 +91,11 @@ func GlobalRouter(h *GlobalHandler) http.Handler {
 
 				r.Post("/execute", h.ExecuteRcon)
 				r.Get("/logs", h.GetRecentLogs)
-				r.Get("/metrics", h.GetMetrics)
-				r.Get("/metrics/series", h.GetMetricsTimeSeries)
+
+				r.Route("/metrics", func(r chi.Router) {
+					r.Get("/", h.GetMetrics)
+					r.Get("/series", h.GetMetricsTimeSeries)
+				})
 
 				r.Group(func(r chi.Router) {
 					r.Use(RequireRole("ADMIN"))
