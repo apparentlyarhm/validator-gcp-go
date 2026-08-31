@@ -135,6 +135,7 @@ SSH_HOST_KEY_HASH=value # it took me this long to add this idk why
 # for prometheus-backed metric queries
 PROMETHEUS_API_KEY=value # shared key expected by the exporter or reverse proxy
 PROMETHEUS_PORT=value # usually 9090 or whichever port exposes the Prometheus API
+PROMETHEUS_QUERY_PROFILE=default # switch to a named query set without deleting old ones
 ```
 
 ## Prometheus-backed metrics
@@ -144,6 +145,18 @@ The app can query a Prometheus-compatible exporter on the Minecraft VM and expos
 - a Prometheus-compatible metrics endpoint reachable at `http://<vm-ip>:<PROMETHEUS_PORT>/api/v1/query`
 - a shared API key in `PROMETHEUS_API_KEY` for authenticated access
 - a valid VM IP passed to the `address` query parameter on the API routes
+
+### Query profiles (recommended for MC version/loader changes)
+
+Prometheus query names and labels can change when you change loader/modpacks or Minecraft versions. Instead of overwriting old expressions, I decided to keep them in named profiles and switch profiles via env:
+
+- `PROMETHEUS_QUERY_PROFILE=some-val` (active profile)
+
+Profile mappings are defined in `internal/models/intermediaries.go` and selected at runtime. This lets you:
+
+- keep older query sets as reference
+- safely add a new profile for a new server stack
+- roll back quickly by changing only one env variable
 
 ### Available endpoints
 

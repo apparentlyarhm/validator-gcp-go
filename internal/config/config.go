@@ -21,6 +21,7 @@ type Config struct {
 type MetricConfig struct {
 	PrometheusApiKey string `envconfig:"PROMETHEUS_API_KEY" required:"false"`
 	PrometheusPort   int    `envconfig:"PROMETHEUS_PORT" default:"1111"`
+	QueryProfile     string `envconfig:"PROMETHEUS_QUERY_PROFILE" default:"default"`
 	// endpoint is usually vm ip adress.
 }
 
@@ -96,6 +97,7 @@ func Load() (Config, error) {
 	fmt.Printf("[ENV] Enabled RCON commands: %v\n", len(RconCommandsMap))
 	fmt.Printf("[ENV] Configured frontend: %v\n", cfg.FeHost)
 	fmt.Printf("[ENV] LEN Prometheus API key: %v\n", len(cfg.Metrics.PrometheusApiKey))
+	fmt.Printf("[ENV] Prometheus query profile: %v\n", cfg.Metrics.QueryProfile)
 
 	return cfg, nil
 }

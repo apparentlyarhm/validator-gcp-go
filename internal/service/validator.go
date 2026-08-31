@@ -637,26 +637,35 @@ func (s *ValidatorService) GetAllMetrics(ctx context.Context, ip string) (*model
 		*target = val
 	}
 
-	// fetch parallelly
-	metricQuery := func(metric models.Metric) string {
-		query, _ := metric.Query()
-		return query
+	queries := []struct {
+		metric models.Metric
+		target *float64
+	}{
+		{metric: models.MetricChunksOverworld, target: &metrics.LoadedChunks},
+		{metric: models.MetricTotalChunks, target: &metrics.TotalLoadedChunks},
+		{metric: models.MetricMSPT, target: &metrics.MSPT},
+		{metric: models.MetricTPS, target: &metrics.TPS},
+		{metric: models.MetricPlayers, target: &metrics.PlayersOnline},
+		{metric: models.MetricEntities, target: &metrics.Entities},
+		{metric: models.MetricHandshakes, target: &metrics.Handshakes},
+		{metric: models.JVMMemoryUsedNonHeap, target: &metrics.JVMMemoryUsed},
+		{metric: models.JVMMemoryUsedHeap, target: &metrics.JVMMemoryUsedHeap},
+		{metric: models.JVMMemoryMaxNonHeap, target: &metrics.JVMMemoryMax},
+		{metric: models.JVMMemoryMaxHeap, target: &metrics.JVMMemoryMaxHeap},
+		{metric: models.JVMGc, target: &metrics.JVMGc},
+		{metric: models.Cpu, target: &metrics.Cpu},
 	}
 
-	wg.Add(13)
-	go fetch(metricQuery(models.MetricChunksOverworld), &metrics.LoadedChunks)
-	go fetch(metricQuery(models.MetricTotalChunks), &metrics.TotalLoadedChunks)
-	go fetch(metricQuery(models.MetricMSPT), &metrics.MSPT)
-	go fetch(metricQuery(models.MetricTPS), &metrics.TPS)
-	go fetch(metricQuery(models.MetricPlayers), &metrics.PlayersOnline)
-	go fetch(metricQuery(models.MetricEntities), &metrics.Entities)
-	go fetch(metricQuery(models.MetricHandshakes), &metrics.Handshakes)
-	go fetch(metricQuery(models.JVMMemoryUsedNonHeap), &metrics.JVMMemoryUsed)
-	go fetch(metricQuery(models.JVMMemoryUsedHeap), &metrics.JVMMemoryUsedHeap)
-	go fetch(metricQuery(models.JVMMemoryMaxNonHeap), &metrics.JVMMemoryMax)
-	go fetch(metricQuery(models.JVMMemoryMaxHeap), &metrics.JVMMemoryMaxHeap)
-	go fetch(metricQuery(models.JVMGc), &metrics.JVMGc)
-	go fetch(metricQuery(models.Cpu), &metrics.Cpu)
+	for _, item := range queries {
+		query, ok := models.ResolveMetricQuery(item.metric, s.cfg.Metrics.QueryProfile)
+		if !ok {
+			log.Printf("[METRICS] skipping unsupported metric %s for profile %s", item.metric, s.cfg.Metrics.QueryProfile)
+			continue
+		}
+
+		wg.Add(1)
+		go fetch(query, item.target)
+	}
 
 	wg.Wait()
 
@@ -678,7 +687,7 @@ func (s *ValidatorService) GetMetricTimeSeries(ctx context.Context, ip string, m
 		return nil, apperror.ErrBadRequest
 	}
 
-	query, ok := metric.Query()
+	query, ok := models.ResolveMetricQuery(metric, s.cfg.Metrics.QueryProfile)
 	if !ok {
 		return nil, apperror.ErrNotFound
 	}
