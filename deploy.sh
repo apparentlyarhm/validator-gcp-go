@@ -76,6 +76,8 @@ REQUIRED_VARS=(
     "GOOGLE_SERVICE_ACCOUNT_EMAIL"
     "PROMETHEUS_API_KEY"
     "PROMETHEUS_PORT"
+    # technically the profile is optional but it defaults to an empty map, so enforcing it here.
+    "PROMETHEUS_QUERY_PROFILE" 
 )
 
 echo "3. Verifying all required environment variables are set..."
