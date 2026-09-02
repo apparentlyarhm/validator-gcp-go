@@ -45,6 +45,7 @@ type MinecraftConfig struct {
 	RconPass   string `envconfig:"MINECRAFT_RCON_PASS" required:"true"`
 	RconPort   int    `envconfig:"MINECRAFT_RCON_PORT" required:"true"`
 	ServerPort int    `envconfig:"MINECRAFT_SERVER_PORT" required:"true"`
+	QueryPort  int    `envconfig:"MINECRAFT_QUERY_PORT" required:"false"`
 }
 
 type SSHConfig struct {
@@ -99,6 +100,10 @@ func Load() (Config, error) {
 	fmt.Printf("[ENV] Configured frontend: %v\n", cfg.FeHost)
 	fmt.Printf("[ENV] LEN Prometheus API key: %v\n", len(cfg.Metrics.PrometheusApiKey))
 	fmt.Printf("[ENV] Prometheus query profile: %v\n", cfg.Metrics.QueryProfile)
+
+	if cfg.Minecraft.QueryPort == 0 {
+		cfg.Minecraft.QueryPort = cfg.Minecraft.ServerPort
+	}
 
 	return cfg, nil
 }

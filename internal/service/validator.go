@@ -465,7 +465,7 @@ func (s *ValidatorService) GetServerInfo(ctx context.Context, ip string) (*model
 	if source == nil {
 		return nil, apperror.ErrBadRequest
 	}
-	var address string = fmt.Sprintf("%v:%v", ip, s.cfg.Minecraft.ServerPort)
+	var address string = fmt.Sprintf("%v:%v", ip, s.cfg.Minecraft.QueryPort)
 
 	conn, connErr := net.DialTimeout("udp", address, 2*time.Second)
 	if connErr != nil {

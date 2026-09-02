@@ -107,7 +107,8 @@ GOOGLE_CLOUD_VM_NAME=value
 GOOGLE_CLOUD_VM_ZONE=value
 
 # minecraft ops - needs everything enabled
-MINECRAFT_SERVER_PORT=value # it is assumed that query port is same as server port
+MINECRAFT_SERVER_PORT=value
+MINECRAFT_QUERY_PORT=value # udp query port used by /serverinfo
 MINECRAFT_RCON_PASS=value
 MINECRAFT_RCON_PORT=value
 SSH_LOG_PATH=path/to/latest.log
