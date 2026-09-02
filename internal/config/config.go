@@ -65,11 +65,12 @@ type RconCommandDef struct {
 var Admins = []string{
 	"169424843",
 	"83200957",
+	"103031918",
 }
 
 // github user IDs of allowed users - mostly for normal rcon commands
 var Users = []string{
-	"103031918",
+	"324039897",
 }
 
 var RconCommandsMap = map[string]RconCommandDef{
