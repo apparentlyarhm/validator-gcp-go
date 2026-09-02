@@ -58,55 +58,52 @@ func GlobalRouter(h *GlobalHandler) http.Handler {
 	r.Use(middleware.Recoverer)
 
 	r.Route("/api/v2", func(r chi.Router) {
-		// PUBLIC
 
 		r.Get("/ping", h.Pong)
 		r.Get("/machine", h.GetMachineDetails)
 		r.Get("/server-info", h.GetServerInfo)
-
-		r.Route("/firewall", func(r chi.Router) {
-			r.Get("/", h.GetFirewallDetails)
-			r.Get("/check-ip", h.CheckIpInFirewall)
-			r.Patch("/add-ip", h.AddUserIp)
-		})
 
 		r.Route("/auth", func(r chi.Router) {
 			r.Get("/login", h.GetGitHubLoginUrl)
 			r.Get("/callback", h.IssueJwtToken)
 		})
 
-		// PROTECTED
+		r.Route("/firewall", func(r chi.Router) {
+			r.Get("/", h.GetFirewallDetails)
+			r.Get("/check-ip", h.CheckIpInFirewall)
 
-		r.Group(func(r chi.Router) {
-			r.Use(AuthMiddleware(h.Auth))
 			r.Group(func(r chi.Router) {
-
-				// improve logic
+				r.Use(AuthMiddleware(h.Auth))
 				r.Use(RequireRole("ADMIN", "USER"))
 
-				r.Route("/mods", func(r chi.Router) {
-					r.Get("/", h.GetMods)
-					r.Get("/download/{filename}", h.DownloadMod)
-				})
-
-				r.Post("/execute", h.ExecuteRcon)
-				r.Get("/logs", h.GetRecentLogs)
-
-				r.Route("/metrics", func(r chi.Router) {
-					r.Get("/", h.GetMetrics)
-					r.Get("/series", h.GetMetricsTimeSeries)
-				})
+				r.Patch("/add-ip", h.AddUserIp)
 
 				r.Group(func(r chi.Router) {
 					r.Use(RequireRole("ADMIN"))
 
-					r.Patch("/firewall/purge", h.PurgeFirewall)
-					r.Patch("/firewall/make-public", h.MakePublic)
+					r.Patch("/purge", h.PurgeFirewall)
+					r.Patch("/make-public", h.MakePublic)
 				})
 			})
 		})
 
-	})
+		r.Group(func(r chi.Router) {
+			r.Use(AuthMiddleware(h.Auth))
+			r.Use(RequireRole("ADMIN", "USER"))
 
+			r.Post("/execute", h.ExecuteRcon)
+			r.Get("/logs", h.GetRecentLogs)
+
+			r.Route("/mods", func(r chi.Router) {
+				r.Get("/", h.GetMods)
+				r.Get("/download/{filename}", h.DownloadMod)
+			})
+
+			r.Route("/metrics", func(r chi.Router) {
+				r.Get("/", h.GetMetrics)
+				r.Get("/series", h.GetMetricsTimeSeries)
+			})
+		})
+	})
 	return r
 }
