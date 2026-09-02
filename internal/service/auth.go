@@ -62,7 +62,7 @@ func (a *AuthService) Callback(ctx context.Context, code string) (*models.LoginR
 
 	role := a.Cfg.GetRoleForUser(uid)
 
-	expiration := time.Now().Add(3 * time.Hour)
+	expiration := time.Now().Add(15 * time.Minute)
 
 	claims := UserClaims{
 		Username: login,
