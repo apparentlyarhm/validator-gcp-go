@@ -72,6 +72,8 @@ var Admins = []string{
 // github user IDs of allowed users - mostly for normal rcon commands
 var Users = []string{
 	"324039897",
+	"36323763",
+	"48612780",
 }
 
 var RconCommandsMap = map[string]RconCommandDef{
