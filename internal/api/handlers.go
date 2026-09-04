@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"path"
+	"time"
 
 	"github.com/validator-gcp/v2/internal/apperror"
 	"github.com/validator-gcp/v2/internal/models"
@@ -331,6 +332,76 @@ func (h *GlobalHandler) GetRecentLogs(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(res); err != nil {
 		h.handleError(w, r, err)
 		return
+	}
+}
+
+func (h *GlobalHandler) GetMetrics(w http.ResponseWriter, r *http.Request) {
+	metrics, err := h.Validator.GetAllMetrics(r.Context(), r.URL.Query().Get("address"))
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	if err := json.NewEncoder(w).Encode(metrics); err != nil {
+		log.Printf("%v : %v", r.URL.Path, err)
+		h.handleError(w, r, apperror.ErrInternal)
+	}
+}
+
+func (h *GlobalHandler) GetMetricsTimeSeries(w http.ResponseWriter, r *http.Request) {
+	// step is 15s default, therefore, by default duration = 1hr with 15s step = 240 data points.
+
+	address := r.URL.Query().Get("address")
+	metric := models.Metric(r.URL.Query().Get("metric"))
+	start := r.URL.Query().Get("start")
+	end := r.URL.Query().Get("end")
+
+	if address == "" || metric == "" {
+		h.handleError(w, r, apperror.ErrBadRequest)
+		return
+	}
+
+	var startTime time.Time
+	var endTime time.Time
+
+	if start == "" {
+		endTime = time.Now()
+		startTime = endTime.Add(-1 * time.Hour)
+	} else {
+		var err error
+		startTime, err = time.Parse(time.RFC3339, start)
+		if err != nil {
+			h.handleError(w, r, apperror.ErrBadRequest)
+			return
+		}
+
+		if end == "" {
+			endTime = time.Now()
+		} else {
+			endTime, err = time.Parse(time.RFC3339, end)
+			if err != nil {
+				h.handleError(w, r, apperror.ErrBadRequest)
+				return
+			}
+		}
+	}
+
+	metrics, err := h.Validator.GetMetricTimeSeries(r.Context(), address, metric, startTime, endTime)
+
+	if err != nil {
+		h.handleError(w, r, err)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+
+	if err := json.NewEncoder(w).Encode(metrics); err != nil {
+		log.Printf("%v : %v", r.URL.Path, err)
+		h.handleError(w, r, apperror.ErrInternal)
 	}
 }
 

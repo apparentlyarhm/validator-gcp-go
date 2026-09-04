@@ -64,6 +64,7 @@ REQUIRED_VARS=(
     "GOOGLE_CLOUD_VM_NAME"
     "GOOGLE_CLOUD_FIREWALL_NAME"
     "MINECRAFT_SERVER_PORT"
+    "MINECRAFT_QUERY_PORT"
     "MINECRAFT_RCON_PASS"
     "MINECRAFT_RCON_PORT"
     "GITHUB_CLIENT_ID"
@@ -74,6 +75,10 @@ REQUIRED_VARS=(
     "SSH_LOG_PATH"
     "SSH_HOST_KEY_HASH"
     "GOOGLE_SERVICE_ACCOUNT_EMAIL"
+    "PROMETHEUS_API_KEY"
+    "PROMETHEUS_PORT"
+    # technically the profile is optional but it defaults to an empty map, so enforcing it here.
+    "PROMETHEUS_QUERY_PROFILE" 
 )
 
 echo "3. Verifying all required environment variables are set..."

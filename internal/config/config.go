@@ -12,9 +12,17 @@ type Config struct {
 	SigningSecret string `envconfig:"SIGNING_SECRET" required:"true"`
 	GitHub        GitHubConfig
 	GoogleCloud   GoogleCloudConfig
+	Metrics       MetricConfig
 	Minecraft     MinecraftConfig
 	FeHost        string `envconfig:"FE_HOST" default:"http://localhost:3000"`
 	SSH           SSHConfig
+}
+
+type MetricConfig struct {
+	PrometheusApiKey string `envconfig:"PROMETHEUS_API_KEY" required:"false"`
+	PrometheusPort   int    `envconfig:"PROMETHEUS_PORT" default:"1111"`
+	QueryProfile     string `envconfig:"PROMETHEUS_QUERY_PROFILE" default:"default"`
+	// endpoint is usually vm ip adress.
 }
 
 type GitHubConfig struct {
@@ -37,6 +45,7 @@ type MinecraftConfig struct {
 	RconPass   string `envconfig:"MINECRAFT_RCON_PASS" required:"true"`
 	RconPort   int    `envconfig:"MINECRAFT_RCON_PORT" required:"true"`
 	ServerPort int    `envconfig:"MINECRAFT_SERVER_PORT" required:"true"`
+	QueryPort  int    `envconfig:"MINECRAFT_QUERY_PORT" required:"false"`
 }
 
 type SSHConfig struct {
@@ -57,11 +66,14 @@ type RconCommandDef struct {
 var Admins = []string{
 	"169424843",
 	"83200957",
+	"103031918",
 }
 
 // github user IDs of allowed users - mostly for normal rcon commands
 var Users = []string{
-	"103031918",
+	"324039897",
+	"36323763",
+	"48612780",
 }
 
 var RconCommandsMap = map[string]RconCommandDef{
@@ -88,6 +100,12 @@ func Load() (Config, error) {
 	fmt.Printf("[ENV] associated modlist file :: %v\n", cfg.GoogleCloud.ModlistFile)
 	fmt.Printf("[ENV] Enabled RCON commands: %v\n", len(RconCommandsMap))
 	fmt.Printf("[ENV] Configured frontend: %v\n", cfg.FeHost)
+	fmt.Printf("[ENV] LEN Prometheus API key: %v\n", len(cfg.Metrics.PrometheusApiKey))
+	fmt.Printf("[ENV] Prometheus query profile: %v\n", cfg.Metrics.QueryProfile)
+
+	if cfg.Minecraft.QueryPort == 0 {
+		cfg.Minecraft.QueryPort = cfg.Minecraft.ServerPort
+	}
 
 	return cfg, nil
 }

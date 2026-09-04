@@ -90,3 +90,34 @@ type LogItem struct {
 type LogResponse struct {
 	Items []LogItem `json:"items"`
 }
+
+type MinecraftMetricsResponse struct {
+	LoadedChunks      float64 `json:"loaded_chunks"`
+	TotalLoadedChunks float64 `json:"total_loaded_chunks"`
+	MSPT              float64 `json:"mspt"`
+	TPS               float64 `json:"tps"`
+	PlayersOnline     float64 `json:"players_online"`
+	Entities          float64 `json:"entities"`
+	Handshakes        float64 `json:"handshakes"`
+	JVMMemoryUsed     float64 `json:"jvm_memory_used"`
+	JVMMemoryUsedHeap float64 `json:"jvm_memory_used_heap"`
+	JVMMemoryMax      float64 `json:"jvm_memory_max"`
+	JVMMemoryMaxHeap  float64 `json:"jvm_memory_max_heap"`
+	JVMGc             float64 `json:"jvm_gc"`
+	Cpu               float64 `json:"cpu"`
+}
+
+type PromSample struct {
+	Timestamp float64 `json:"timestamp"`
+	Value     float64 `json:"value"`
+}
+
+type PromTimeSeries struct {
+	Metric map[string]string `json:"metric"`
+	Values []PromSample      `json:"values"`
+}
+
+type MinecraftMetricTimeSeries struct {
+	Metric string       `json:"metric"`
+	Values []PromSample `json:"values"`
+}

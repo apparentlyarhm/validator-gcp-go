@@ -2,15 +2,19 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net"
+	"net/http"
+	"net/url"
 	"path"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	compute "cloud.google.com/go/compute/apiv1"
@@ -23,12 +27,9 @@ import (
 	"google.golang.org/api/option"
 )
 
-const PUBLIC_WILDCARD = "0.0.0.0/0"
-const BASIC_IPV4 = "1.1.1.1/32"
-const API_CALL_TIMEOUT = 20 * time.Second // timeout for all contexts that use the gcloud client library functions aka their APIs
-
 type ValidatorService struct {
-	cfg *config.Config
+	cfg        *config.Config
+	httpClient *http.Client
 
 	// clients
 	firewallsClient   *compute.FirewallsClient
@@ -37,8 +38,16 @@ type ValidatorService struct {
 	storageClient     *storage.Client
 }
 
-func NewValidatorService(cfg *config.Config) (*ValidatorService, error) {
+const PUBLIC_WILDCARD = "0.0.0.0/0"
+const BASIC_IPV4 = "1.1.1.1/32"
+const API_CALL_TIMEOUT = 20 * time.Second // timeout for all contexts that use the gcloud client library functions aka their APIs
+
+func NewValidatorService(cfg *config.Config, httpClient *http.Client) (*ValidatorService, error) {
 	ctx := context.Background()
+
+	if httpClient == nil {
+		return nil, errors.New("httpClient cannot be nil")
+	}
 
 	var o []option.ClientOption
 	if cfg.GoogleCloud.ApplicationCredentials != "" {
@@ -58,6 +67,7 @@ func NewValidatorService(cfg *config.Config) (*ValidatorService, error) {
 		instancesClient:   instClient,
 		storageClient:     storageClient,
 		machineTypeClient: mchTypeClient,
+		httpClient:        httpClient,
 	}, nil
 }
 
@@ -455,7 +465,7 @@ func (s *ValidatorService) GetServerInfo(ctx context.Context, ip string) (*model
 	if source == nil {
 		return nil, apperror.ErrBadRequest
 	}
-	var address string = fmt.Sprintf("%v:%v", ip, s.cfg.Minecraft.ServerPort)
+	var address string = fmt.Sprintf("%v:%v", ip, s.cfg.Minecraft.QueryPort)
 
 	conn, connErr := net.DialTimeout("udp", address, 2*time.Second)
 	if connErr != nil {
@@ -586,6 +596,305 @@ func (s *ValidatorService) GetLogs(ctx context.Context, ip string, lines string)
 		Items: *items,
 	}, nil
 
+}
+
+func (s *ValidatorService) GetAllMetrics(ctx context.Context, ip string) (*models.MinecraftMetricsResponse, error) {
+
+	if s.cfg.Metrics.PrometheusApiKey == "" || s.cfg.Metrics.PrometheusPort == 1111 {
+		log.Print("[METRICS] prometheus api key or port not set. skipping metrics fetch")
+		return &models.MinecraftMetricsResponse{}, apperror.ErrBadRequest
+	}
+
+	var metrics models.MinecraftMetricsResponse
+	var wg sync.WaitGroup
+	var err error
+	var mu sync.Mutex
+
+	// Helper to fetch concurrently
+	fetch := func(query string, target *float64) {
+		defer wg.Done()
+		val, fetchErr := s.fetchSingleMetric(ctx, ip, query)
+		if fetchErr != nil {
+			mu.Lock()
+			if err == nil {
+				err = fetchErr
+			}
+
+			// logging
+			if errors.Is(fetchErr, apperror.ErrUnauthorized) {
+				log.Printf("[METRICS] unauthorized access to prometheus metrics. check api key")
+			} else if errors.Is(fetchErr, apperror.ErrInternal) {
+				log.Printf("[METRICS] internal error occurred while fetching prometheus metrics")
+			} else if errors.Is(fetchErr, apperror.ErrBadRequest) {
+				log.Printf("[METRICS] bad request while fetching prometheus metrics. check query format")
+			} else if errors.Is(fetchErr, apperror.ErrNotFound) {
+				log.Printf("[METRICS] prometheus endpoint not found. check if the exporter is running on the server")
+			}
+
+			mu.Unlock()
+			return
+		}
+		*target = val
+	}
+
+	queries := []struct {
+		metric models.Metric
+		target *float64
+	}{
+		{metric: models.MetricChunksOverworld, target: &metrics.LoadedChunks},
+		{metric: models.MetricTotalChunks, target: &metrics.TotalLoadedChunks},
+		{metric: models.MetricMSPT, target: &metrics.MSPT},
+		{metric: models.MetricTPS, target: &metrics.TPS},
+		{metric: models.MetricPlayers, target: &metrics.PlayersOnline},
+		{metric: models.MetricEntities, target: &metrics.Entities},
+		{metric: models.MetricHandshakes, target: &metrics.Handshakes},
+		{metric: models.JVMMemoryUsedNonHeap, target: &metrics.JVMMemoryUsed},
+		{metric: models.JVMMemoryUsedHeap, target: &metrics.JVMMemoryUsedHeap},
+		{metric: models.JVMMemoryMaxNonHeap, target: &metrics.JVMMemoryMax},
+		{metric: models.JVMMemoryMaxHeap, target: &metrics.JVMMemoryMaxHeap},
+		{metric: models.JVMGc, target: &metrics.JVMGc},
+		{metric: models.Cpu, target: &metrics.Cpu},
+	}
+
+	for _, item := range queries {
+		query, ok := models.ResolveMetricQuery(item.metric, s.cfg.Metrics.QueryProfile)
+		if !ok {
+			log.Printf("[METRICS] skipping unsupported metric %s for profile %s", item.metric, s.cfg.Metrics.QueryProfile)
+			continue
+		}
+
+		wg.Add(1)
+		go fetch(query, item.target)
+	}
+
+	wg.Wait()
+
+	if err != nil {
+		return &metrics, err
+	}
+
+	return &metrics, nil
+}
+
+func (s *ValidatorService) GetMetricTimeSeries(ctx context.Context, ip string, metric models.Metric, start time.Time, end time.Time) ([]models.PromSample, error) {
+	if s.cfg.Metrics.PrometheusApiKey == "" ||
+		s.cfg.Metrics.PrometheusPort == 1111 {
+
+		log.Print(
+			"[METRICS] prometheus api key or port not set. skipping metrics fetch",
+		)
+
+		return nil, apperror.ErrBadRequest
+	}
+
+	query, ok := models.ResolveMetricQuery(metric, s.cfg.Metrics.QueryProfile)
+	if !ok {
+		return nil, apperror.ErrNotFound
+	}
+
+	return s.fetchMetricTimeSeries(
+		ctx,
+		ip,
+		query,
+		start,
+		end,
+	)
+}
+
+func (s *ValidatorService) fetchMetricTimeSeries(ctx context.Context, ip string, query string, start time.Time, end time.Time) ([]models.PromSample, error) {
+	reqURL := fmt.Sprintf(
+		"http://%s:%d/api/v1/query_range?query=%s&start=%s&end=%s&step=%s",
+		ip,
+		s.cfg.Metrics.PrometheusPort,
+		url.QueryEscape(query),
+		url.QueryEscape(start.Format(time.RFC3339)),
+		url.QueryEscape(end.Format(time.RFC3339)),
+		url.QueryEscape("15"),
+	)
+
+	req, err := http.NewRequestWithContext(ctx, "GET", reqURL, nil)
+	if err != nil {
+		log.Printf(
+			"[METRICS] failed to create timeseries request for query %s: %v",
+			query,
+			err,
+		)
+
+		return nil, apperror.ErrInternal
+	}
+
+	req.Header.Set("X-API-Key", s.cfg.Metrics.PrometheusApiKey)
+
+	resp, err := s.httpClient.Do(req)
+
+	// HTTP client errors are transport-level errors.
+	// Non-2xx responses are handled below.
+	if err != nil {
+		log.Printf(
+			"[METRICS] failed to fetch timeseries metric %s from %s: %v",
+			query,
+			ip,
+			err,
+		)
+
+		return nil, apperror.ErrInternal
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, apperror.ErrNotFound
+		}
+
+		if resp.StatusCode == http.StatusUnauthorized {
+			return nil, apperror.ErrUnauthorized
+		}
+
+		if resp.StatusCode == http.StatusBadGateway ||
+			resp.StatusCode == http.StatusServiceUnavailable ||
+			resp.StatusCode == http.StatusInternalServerError {
+
+			return nil, apperror.ErrInternal
+		}
+
+		log.Printf(
+			"[METRICS] failed to fetch timeseries metric %s from %s. status code: %d",
+			query,
+			ip,
+			resp.StatusCode,
+		)
+
+		return nil, apperror.ErrInternal
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf(
+			"[METRICS] failed to read timeseries response for query %s: %v",
+			query,
+			err,
+		)
+
+		return nil, apperror.ErrInternal
+	}
+
+	var promData models.PromQueryRangeResponse
+
+	if err := json.Unmarshal(body, &promData); err != nil {
+		log.Printf(
+			"[METRICS] failed to unmarshal timeseries response for query %s: %v",
+			query,
+			err,
+		)
+
+		return nil, apperror.ErrInternal
+	}
+
+	if promData.Status != "success" {
+		log.Printf(
+			"[METRICS] prometheus query failed for %s: %s: %s",
+			query,
+			promData.ErrorType,
+			promData.Error,
+		)
+
+		return nil, apperror.ErrInternal
+	}
+
+	if len(promData.Data.Result) == 0 {
+		// Same philosophy as your current implementation:
+		// metric doesn't exist -> return empty result rather than error.
+		return []models.PromSample{}, nil
+	}
+
+	result := promData.Data.Result[0]
+
+	samples := make([]models.PromSample, 0, len(result.Values))
+
+	for _, value := range result.Values {
+		if len(value) != 2 {
+			continue
+		}
+
+		timestamp, ok := value[0].(float64)
+		if !ok {
+			continue
+		}
+
+		valueStr, ok := value[1].(string)
+		if !ok {
+			continue
+		}
+
+		valueFloat, err := strconv.ParseFloat(valueStr, 64)
+		if err != nil {
+			continue
+		}
+
+		samples = append(samples, models.PromSample{
+			Timestamp: timestamp,
+			Value:     valueFloat,
+		})
+	}
+
+	return samples, nil
+}
+
+func (s *ValidatorService) fetchSingleMetric(ctx context.Context, ip string, query string) (float64, error) {
+	reqURL := fmt.Sprintf("http://%s:%d/api/v1/query?query=%s", ip, s.cfg.Metrics.PrometheusPort, url.QueryEscape(query))
+
+	req, err := http.NewRequest("GET", reqURL, nil)
+	if err != nil {
+		log.Printf("[METRICS] failed to create request for query %s: %v", query, err)
+		return 0, apperror.ErrInternal
+	}
+	req.Header.Set("X-API-Key", s.cfg.Metrics.PrometheusApiKey)
+	resp, err := s.httpClient.Do(req)
+
+	// http client does NOT throw err for non 2xx res. so err means something in our code broke
+	if err != nil {
+		log.Printf("[METRICS] failed to fetch metric %s from %s: %v", query, ip, err)
+		return 0, apperror.ErrInternal
+	}
+
+	if resp.StatusCode != 200 {
+		if resp.StatusCode == 404 {
+			return 0, apperror.ErrNotFound
+		}
+
+		if resp.StatusCode == 401 {
+			// currently caddy returns 401 only for invalid key
+			return 0, apperror.ErrUnauthorized
+		}
+
+		if resp.StatusCode == 500 || resp.StatusCode == 502 || resp.StatusCode == 503 {
+			return 0, apperror.ErrInternal
+		}
+
+		log.Printf("[METRICS] failed to fetch metric %s from %s. status code: %d", query, ip, resp.StatusCode)
+		return 0, apperror.ErrInternal
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+
+	var promData models.PromQueryResponse
+	if err := json.Unmarshal(body, &promData); err != nil {
+		log.Printf("[METRICS] failed to unmarshal metric response for query %s: %v", query, err)
+		return 0, apperror.ErrInternal
+	}
+
+	if promData.Status == "success" && len(promData.Data.Result) > 0 {
+
+		// Value[1] is the actual metric string (e.g., "20.0")
+		valStr, ok := promData.Data.Result[0].Value[1].(string)
+		if ok {
+			valFloat, _ := strconv.ParseFloat(valStr, 64)
+			return valFloat, nil
+		}
+	}
+	return 0, nil // Default to 0 if metric doesn't exist yet
 }
 
 // helper that validates ip
